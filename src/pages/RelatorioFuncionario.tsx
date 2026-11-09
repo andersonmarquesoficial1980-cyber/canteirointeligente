@@ -15,6 +15,7 @@ function fmtDate(d: string) {
 
 interface ResultRow {
   nome: string;
+  matricula: string | null;
   data: string;
   obra_nome: string;
   encarregado: string | null;
@@ -25,57 +26,76 @@ interface ResultRow {
   clima: string | null;
   contratante: string | null;
   local: string | null;
+  equipe: string | null;
+  responsavel: string | null;
+  preenchido_por: string | null;
+  tipo_rdo: string | null;
+  rdo_id: string;
+  origem_horario: string;
+  alertas: string[];
 }
 
-type FilterType = "funcao" | "obra" | "encarregado";
+type FilterType = "funcionario" | "funcao" | "obra" | "encarregado";
 
-function exportarExcel(filterType: FilterType, filterLabel: string, dataIni: string, dataFim: string, rows: ResultRow[]) {
+const hhmm = (t: string | null) => (t ? t.slice(0, 5) : "");
+const norm = (v: string | null | undefined) =>
+  (v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toUpperCase();
+const splitNomes = (v: string | null | undefined) =>
+  (v || "").split("|||").map(n => n.trim()).filter(Boolean);
+const esc = (v: unknown) =>
+  String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const COLS_HEAD = ["Data", "Funcionário", "Matrícula", "Função", "OGS", "Contratante", "Local", "Equipe", "Encarregado", "Responsável", "Preenchido por", "Turno", "Entrada", "Saída", "Origem do horário", "Alertas", "Status"];
+const rowCells = (r: ResultRow) => [
+  fmtDate(r.data), r.nome || "-", r.matricula || "-", r.funcao || "-",
+  r.obra_nome || "-", r.contratante || "-", r.local || "-", r.equipe || "-",
+  r.encarregado || "-", r.responsavel || "-", r.preenchido_por || "-", r.turno || "-",
+  hhmm(r.entrada) || "-", hhmm(r.saida) || "-", r.origem_horario || "-",
+  r.alertas.join("; ") || "-", r.clima || "Trabalhou",
+];
+
+function exportarExcel(filterLabel: string, dataIni: string, dataFim: string, rows: ResultRow[]) {
   const linhas: string[][] = [];
   linhas.push(["Localização de Funcionários (RDO)"]);
   linhas.push([`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`]);
   linhas.push([`Filtro: ${filterLabel}`]);
   linhas.push([]);
-  linhas.push(["Funcionário", "Função", "Data", "OGS", "Contratante", "Local", "Encarregado", "Turno", "Status"]);
-  rows.forEach(r => {
-    linhas.push([
-      r.nome || "-", r.funcao || "-", fmtDate(r.data),
-      r.obra_nome || "-", r.contratante || "-", r.local || "-",
-      r.encarregado || "-", r.turno || "-", r.clima || "Trabalhou",
-    ]);
-  });
+  linhas.push(COLS_HEAD);
+  rows.forEach(r => linhas.push(rowCells(r)));
   const csv = "\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `WF_FuncionariosRdo_${dataIni}_a_${dataFim}.csv`;
+  a.download = `WF_FuncionariosRdo_${dataIni || "inicio"}_a_${dataFim || "fim"}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-function exportarPdf(filterType: FilterType, filterLabel: string, dataIni: string, dataFim: string, rows: ResultRow[]) {
+function exportarPdf(filterLabel: string, dataIni: string, dataFim: string, rows: ResultRow[]) {
   let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Localização de Funcionários (RDO)</title><style>
-    body{font-family:Arial,sans-serif;padding:20px;color:#333;font-size:12px}
-    h1{color:#1a56db;border-bottom:2px solid #1a56db;padding-bottom:6px;font-size:16px}
-    .period{font-size:11px;color:#666;margin-bottom:8px}
-    table{width:100%;border-collapse:collapse;margin:10px 0;font-size:11px}
-    th,td{border:1px solid #d1d5db;padding:4px 7px;text-align:left}
+    @page{size:A4 landscape;margin:8mm}
+    body{font-family:Arial,sans-serif;padding:12px;color:#333;font-size:10px}
+    h1{color:#1a56db;border-bottom:2px solid #1a56db;padding-bottom:6px;font-size:15px}
+    .period{font-size:10px;color:#666;margin-bottom:6px}
+    table{width:100%;border-collapse:collapse;margin:8px 0;font-size:9px}
+    th,td{border:1px solid #d1d5db;padding:3px 5px;text-align:left}
     th{background:#f3f4f6;font-weight:600}
-    @media print{body{padding:8px}}
+    .al{color:#b45309;font-weight:600}
+    .note{font-size:9px;color:#666;margin-top:6px}
+    @media print{body{padding:0}}
   </style></head><body>
-  <h1>👤 Localização de Funcionários (RDO)</h1>
+  <h1>Localização de Funcionários (RDO)</h1>
   <p class="period"><strong>Período:</strong> ${fmtDate(dataIni)} a ${fmtDate(dataFim)}</p>
-  <p class="period"><strong>Filtro:</strong> ${filterLabel} | <strong>Total:</strong> ${rows.length} registros</p>
-  <table>
-    <tr><th>Funcionário</th><th>Função</th><th>Data</th><th>OGS</th><th>Contratante</th><th>Local</th><th>Encarregado</th><th>Turno</th><th>Status</th></tr>`;
+  <p class="period"><strong>Filtro:</strong> ${esc(filterLabel)} | <strong>Total:</strong> ${rows.length} registros</p>
+  <table><tr>${["Data", "Funcionário", "Função", "OGS", "Equipe", "Encarregado", "Preenchido por", "Turno", "Entrada", "Saída", "Origem do horário", "Alertas"].map(h => `<th>${h}</th>`).join("")}</tr>`;
   rows.forEach(r => {
-    html += `<tr>
-      <td>${r.nome||"-"}</td><td>${r.funcao||"-"}</td><td>${fmtDate(r.data)}</td>
-      <td>${r.obra_nome||"-"}</td><td>${r.contratante||"-"}</td><td>${r.local||"-"}</td>
-      <td>${r.encarregado||"-"}</td><td>${r.turno||"-"}</td><td>${r.clima||"Trabalhou"}</td>
-    </tr>`;
+    html += `<tr><td>${fmtDate(r.data)}</td><td>${esc(r.nome || "-")}${r.matricula ? ` (${esc(r.matricula)})` : ""}</td><td>${esc(r.funcao || "-")}</td>
+      <td>${esc(r.obra_nome || "-")}</td><td>${esc(r.equipe || "-")}</td><td>${esc(r.encarregado || "-")}</td>
+      <td>${esc(r.preenchido_por || "-")}</td><td>${esc(r.turno || "-")}</td><td>${hhmm(r.entrada) || "-"}</td><td>${hhmm(r.saida) || "-"}</td>
+      <td>${esc(r.origem_horario)}</td><td class="al">${esc(r.alertas.join("; ") || "-")}</td></tr>`;
   });
-  html += `</table></body></html>`;
+  html += `</table><p class="note">Horários conforme informado pelo apontador no RDO. "Padrão do RDO" = todos do RDO com o mesmo horário; "Individual" = horário diferente dentro do mesmo RDO.</p></body></html>`;
   const win = window.open("", "_blank");
   if (!win) return;
   win.document.write(html);
@@ -89,7 +109,11 @@ export default function RelatorioFuncionario() {
   const goBack = useSmartBack("/relatorios");
   const { profile } = useUserProfile();
 
-  const [filterType, setFilterType] = useState<FilterType>("funcao");
+  const [filterType, setFilterType] = useState<FilterType>("funcionario");
+
+  // Por Funcionário
+  const [busca, setBusca] = useState("");
+  const [cadastro, setCadastro] = useState<{ id: string; name: string; matricula: string | null }[]>([]);
 
   // Por Função
   const [funcao, setFuncao] = useState("");
@@ -112,6 +136,19 @@ export default function RelatorioFuncionario() {
   const [rows, setRows] = useState<ResultRow[]>([]);
   const [searched, setSearched] = useState(false);
   const [messageNoData, setMessageNoData] = useState("");
+
+  // Autocomplete de funcionários (cadastro único)
+  useEffect(() => {
+    if (filterType !== "funcionario" || !profile?.company_id || cadastro.length > 0) return;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("employees")
+        .select("id, name, matricula")
+        .eq("company_id", profile.company_id!)
+        .order("name");
+      setCadastro((data || []).filter((e: any) => e.name));
+    })();
+  }, [filterType, profile?.company_id, cadastro.length]);
 
   // Carregar funções disponíveis — busca da tabela funcoes (cadastro oficial)
   useEffect(() => {
@@ -203,6 +240,7 @@ export default function RelatorioFuncionario() {
   }, [filterType, profile?.company_id]);
 
   const isValid = () => {
+    if (filterType === "funcionario") return busca.trim().length >= 3;
     if (filterType === "funcao") return funcao.trim().length > 0;
     if (filterType === "obra") return obra.trim().length > 0;
     if (filterType === "encarregado") return encarregado.trim().length > 0;
@@ -210,6 +248,7 @@ export default function RelatorioFuncionario() {
   };
 
   const getFilterLabel = () => {
+    if (filterType === "funcionario") return `Funcionário: ${busca}`;
     if (filterType === "funcao") return `Função: ${funcao}${nome ? ` | ${nome}` : " (todos)"}`;
     if (filterType === "obra") return `Obra: ${obra}`;
     return `Encarregado: ${encarregado}`;
@@ -226,11 +265,74 @@ export default function RelatorioFuncionario() {
       let rdoIds: string[] = [];
       let rdoMap: Record<string, any> = {};
 
-      if (filterType === "funcao") {
+      if (filterType === "funcionario") {
+        const termo = busca.trim();
+        const alvo = cadastro.find(e => norm(e.name) === norm(termo) || (e.matricula && norm(e.matricula) === norm(termo)));
+        const nomeAlvo = norm(alvo ? alvo.name : termo);
+        const matAlvo = alvo?.matricula ? norm(alvo.matricula) : (/^\d+$/.test(termo) ? norm(termo) : "");
+        const orParts = [`nome.ilike.%${(alvo ? alvo.name : termo).replace(/[,()%]/g, " ")}%`];
+        if (alvo) orParts.push(`employee_id.eq.${alvo.id}`);
+        if (matAlvo) orParts.push(`matricula.ilike.%${matAlvo}%`);
+
+        let q = (supabase as any)
+          .from("rdo_efetivo")
+          .select("nome, funcao, entrada, saida, matricula, employee_id, rdo_id, rdo_diarios!inner(id, data, obra_nome, encarregado, turno, clima, equipe, responsavel, preenchido_por, tipo_rdo, company_id, status_validacao)")
+          .eq("rdo_diarios.company_id", profile.company_id!)
+          .neq("rdo_diarios.status_validacao", "rascunho")
+          .or(orParts.join(","));
+        if (dataIni) q = q.gte("rdo_diarios.data", dataIni);
+        if (dataFim) q = q.lte("rdo_diarios.data", dataFim);
+        const { data, error } = await q.limit(5000);
+        if (error) throw error;
+
+        let result: ResultRow[] = [];
+        (data || []).forEach((r: any) => {
+          const nomes = splitNomes(r.nome);
+          const mats = (r.matricula || "").split("|||").map((m: string) => m.trim());
+          // Match exato por nome (sem acento/caixa), por employee_id ou matrícula; termo livre = contém
+          let idx = nomes.findIndex(n => (alvo ? norm(n) === nomeAlvo : norm(n).includes(nomeAlvo)));
+          const porId = !!alvo && r.employee_id === alvo.id;
+          const porMat = !!matAlvo && mats.some((m: string) => norm(m) === matAlvo);
+          if (idx < 0 && !porId && !porMat) return;
+          if (idx < 0) idx = 0;
+          const nomeFinal = nomes[idx] || (alvo?.name ?? "");
+          // Só uma pessoa casa por linha; para termo livre, listar todas as que casam
+          const indices = alvo ? [idx] : nomes.map((n, i) => (norm(n).includes(nomeAlvo) ? i : -1)).filter(i => i >= 0);
+          (indices.length ? indices : [idx]).forEach(i => {
+            result.push({
+              nome: nomes[i] || nomeFinal,
+              matricula: mats[i] || (nomes.length === 1 ? (r.matricula || null) : null),
+              data: r.rdo_diarios?.data || "",
+              obra_nome: r.rdo_diarios?.obra_nome || "",
+              encarregado: r.rdo_diarios?.encarregado || null,
+              funcao: r.funcao || null,
+              entrada: r.entrada || null,
+              saida: r.saida || null,
+              turno: r.rdo_diarios?.turno || null,
+              clima: r.rdo_diarios?.clima || null,
+              contratante: null,
+              local: null,
+              equipe: r.rdo_diarios?.equipe || null,
+              responsavel: r.rdo_diarios?.responsavel || null,
+              preenchido_por: r.rdo_diarios?.preenchido_por || null,
+              tipo_rdo: r.rdo_diarios?.tipo_rdo || null,
+              rdo_id: r.rdo_id,
+              origem_horario: "",
+              alertas: [],
+            });
+          });
+        });
+
+        result = await finalizar(result, profile.company_id!);
+        result.sort((a, b) => b.data.localeCompare(a.data) || a.nome.localeCompare(b.nome) || (a.entrada || "").localeCompare(b.entrada || ""));
+        if (result.length === 0) setMessageNoData(`Nenhum RDO encontrado para "${termo}" no período. Confira a grafia ou tente só o sobrenome/matrícula.`);
+        setRows(result);
+
+      } else if (filterType === "funcao") {
         // Busca direta em rdo_efetivo com join
         let query = (supabase as any)
           .from("rdo_efetivo")
-          .select("nome, funcao, entrada, saida, rdo_id, rdo_diarios!inner(id, data, obra_nome, encarregado, turno, clima, company_id, status_validacao)")
+          .select("nome, funcao, entrada, saida, matricula, employee_id, rdo_id, rdo_diarios!inner(id, data, obra_nome, encarregado, turno, clima, equipe, responsavel, preenchido_por, tipo_rdo, company_id, status_validacao)")
           .eq("rdo_diarios.company_id", profile.company_id!)
           .neq("rdo_diarios.status_validacao", "rascunho")
           .eq("funcao", funcao);
@@ -260,6 +362,14 @@ export default function RelatorioFuncionario() {
               clima: r.rdo_diarios?.clima || null,
               contratante: null,
               local: null,
+              matricula: r.matricula || null,
+              equipe: r.rdo_diarios?.equipe || null,
+              responsavel: r.rdo_diarios?.responsavel || null,
+              preenchido_por: r.rdo_diarios?.preenchido_por || null,
+              tipo_rdo: r.rdo_diarios?.tipo_rdo || null,
+              rdo_id: r.rdo_id,
+              origem_horario: "",
+              alertas: [],
             });
           });
         });
@@ -267,7 +377,7 @@ export default function RelatorioFuncionario() {
         if (dataIni) result = result.filter(r => r.data >= dataIni);
         if (dataFim) result = result.filter(r => r.data <= dataFim);
 
-        result = await enrichWithOgs(result, profile.company_id!);
+        result = await finalizar(result, profile.company_id!);
         result.sort((a, b) => b.data.localeCompare(a.data) || a.nome.localeCompare(b.nome));
 
         if (result.length === 0) setMessageNoData(`Nenhum funcionário encontrado para "${funcao}"${nome ? ` (${nome})` : ""} no período.`);
@@ -277,7 +387,7 @@ export default function RelatorioFuncionario() {
         // Para obra e encarregado: buscar RDOs primeiro, depois efetivo
         let rdoQuery = supabase
           .from("rdo_diarios")
-          .select("id, data, obra_nome, encarregado, turno, clima, company_id")
+          .select("id, data, obra_nome, encarregado, turno, clima, equipe, responsavel, preenchido_por, tipo_rdo, company_id")
           .eq("company_id", profile.company_id!)
           .or("status_validacao.is.null,status_validacao.neq.rascunho");
 
@@ -301,7 +411,7 @@ export default function RelatorioFuncionario() {
 
         const { data: efetivo, error: efErr } = await (supabase as any)
           .from("rdo_efetivo")
-          .select("nome, funcao, entrada, saida, rdo_id")
+          .select("nome, funcao, entrada, saida, rdo_id, matricula")
           .in("rdo_id", rdoIds);
 
         if (efErr) throw efErr;
@@ -326,11 +436,19 @@ export default function RelatorioFuncionario() {
               clima: rdo?.clima || null,
               contratante: null,
               local: null,
+              matricula: r.matricula || null,
+              equipe: rdo?.equipe || null,
+              responsavel: rdo?.responsavel || null,
+              preenchido_por: rdo?.preenchido_por || null,
+              tipo_rdo: rdo?.tipo_rdo || null,
+              rdo_id: r.rdo_id,
+              origem_horario: "",
+              alertas: [],
             });
           });
         });
 
-        result = await enrichWithOgs(result, profile.company_id!);
+        result = await finalizar(result, profile.company_id!);
         result.sort((a, b) => b.data.localeCompare(a.data) || a.nome.localeCompare(b.nome));
 
         if (result.length === 0) setMessageNoData("Nenhum funcionário encontrado nos RDOs do período.");
@@ -341,6 +459,55 @@ export default function RelatorioFuncionario() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Enriquecimento comum: OGS/contratante, equipe do cadastro, origem do horário e alertas
+  const finalizar = async (result: ResultRow[], companyId: string): Promise<ResultRow[]> => {
+    result = await enrichWithOgs(result, companyId);
+    const rdoIds = Array.from(new Set(result.map(r => r.rdo_id).filter(Boolean)));
+
+    // Horários de todos do mesmo RDO → saber se o horário é "padrão do RDO" ou individual
+    const horariosPorRdo: Record<string, Set<string>> = {};
+    for (let i = 0; i < rdoIds.length; i += 150) {
+      const { data } = await (supabase as any)
+        .from("rdo_efetivo")
+        .select("rdo_id, entrada, saida")
+        .in("rdo_id", rdoIds.slice(i, i + 150));
+      (data || []).forEach((h: any) => {
+        (horariosPorRdo[h.rdo_id] ||= new Set()).add(`${hhmm(h.entrada)}-${hhmm(h.saida)}`);
+      });
+    }
+
+    // Mesmo funcionário em mais de um RDO no mesmo dia
+    const contagemDia: Record<string, Set<string>> = {};
+    result.forEach(r => {
+      const k = `${norm(r.nome)}|${r.data}`;
+      (contagemDia[k] ||= new Set()).add(r.rdo_id);
+    });
+
+    // Equipe: usa a do RDO; se vazia, usa a do cadastro do funcionário
+    const nomesSemEquipe = Array.from(new Set(result.filter(r => !r.equipe && r.nome).map(r => r.nome)));
+    const equipePorNome: Record<string, string> = {};
+    if (nomesSemEquipe.length > 0) {
+      const { data } = await (supabase as any)
+        .from("employees").select("name, equipe").eq("company_id", companyId).in("name", nomesSemEquipe.slice(0, 300));
+      (data || []).forEach((e: any) => { if (e.equipe) equipePorNome[norm(e.name)] = e.equipe; });
+    }
+
+    return result.map(r => {
+      const alertas: string[] = [];
+      const ent = hhmm(r.entrada), sai = hhmm(r.saida);
+      const folga = r.clima === "Folga" || r.clima === "Cancelou";
+      if (!folga) {
+        if (!ent || !sai) alertas.push("Sem horário");
+        else if (sai < ent && r.turno !== "noturno") alertas.push("Saída antes da entrada");
+        else if (sai === ent) alertas.push("Entrada = saída");
+      }
+      if ((contagemDia[`${norm(r.nome)}|${r.data}`]?.size || 0) > 1) alertas.push("Mais de um RDO no dia");
+      const hs = horariosPorRdo[r.rdo_id];
+      const origem = !ent && !sai ? "Não informado" : hs && hs.size > 1 ? "Individual" : "Padrão do RDO";
+      return { ...r, alertas, origem_horario: origem, equipe: r.equipe || equipePorNome[norm(r.nome)] || null };
+    });
   };
 
   const enrichWithOgs = async (result: ResultRow[], companyId: string): Promise<ResultRow[]> => {
@@ -365,7 +532,7 @@ export default function RelatorioFuncionario() {
 
   const resetFilters = (type: FilterType) => {
     setFilterType(type);
-    setFuncao(""); setNome(""); setNomesSelecionaveis([]);
+    setBusca(""); setFuncao(""); setNome(""); setNomesSelecionaveis([]);
     setObra(""); setEncarregado("");
     setRows([]); setSearched(false); setMessageNoData("");
   };
@@ -390,6 +557,9 @@ export default function RelatorioFuncionario() {
             Tipo de Filtro
           </label>
           <div className="flex gap-2">
+            <Button variant={filterType === "funcionario" ? "default" : "outline"} onClick={() => resetFilters("funcionario")} className="flex-1">
+              Por Funcionário
+            </Button>
             <Button variant={filterType === "funcao" ? "default" : "outline"} onClick={() => resetFilters("funcao")} className="flex-1">
               Por Função
             </Button>
@@ -404,6 +574,25 @@ export default function RelatorioFuncionario() {
 
         {/* Card de filtros */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+
+          {/* Por Funcionário */}
+          {filterType === "funcionario" && (
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Funcionário (nome ou matrícula) *</label>
+              <Input
+                list="wf-func-cadastro"
+                value={busca}
+                onChange={e => setBusca(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") buscar(); }}
+                placeholder="Digite o nome ou matrícula e escolha na lista..."
+                className="h-11 bg-secondary border-border"
+              />
+              <datalist id="wf-func-cadastro">
+                {cadastro.map(e => <option key={e.id} value={e.name}>{e.matricula || ""}</option>)}
+              </datalist>
+              <p className="text-[11px] text-muted-foreground">Mostra onde a pessoa esteve nos RDOs, com horário de entrada e saída informado pelo apontador. Mínimo 3 caracteres.</p>
+            </div>
+          )}
 
           {/* Por Função: cascata Função → Funcionário */}
           {filterType === "funcao" && (
@@ -493,10 +682,10 @@ export default function RelatorioFuncionario() {
         {/* Botões de exportação */}
         {searched && !loading && rows.length > 0 && (
           <div className="flex gap-2">
-            <Button onClick={() => exportarExcel(filterType, getFilterLabel(), dataIni, dataFim, rows)} variant="outline" className="flex-1 gap-2 text-xs">
+            <Button onClick={() => exportarExcel(getFilterLabel(), dataIni, dataFim, rows)} variant="outline" className="flex-1 gap-2 text-xs">
               <FileSpreadsheet className="w-4 h-4" /> Download Excel
             </Button>
-            <Button onClick={() => exportarPdf(filterType, getFilterLabel(), dataIni, dataFim, rows)} variant="outline" className="flex-1 gap-2 text-xs">
+            <Button onClick={() => exportarPdf(getFilterLabel(), dataIni, dataFim, rows)} variant="outline" className="flex-1 gap-2 text-xs">
               <Printer className="w-4 h-4" /> Download PDF
             </Button>
           </div>
@@ -515,42 +704,54 @@ export default function RelatorioFuncionario() {
                 <div className="bg-card rounded-xl border border-border overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead className="bg-muted/50 sticky top-0">
-                      <tr>
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Funcionário</th>
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Função</th>
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Data</th>
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">OGS</th>
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Contratante</th>
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Local</th>
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Encarregado</th>
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Turno</th>
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((r, i) => (
-                        <tr key={i} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
-                          <td className="px-3 py-2 font-semibold whitespace-nowrap">{r.nome || "-"}</td>
-                          <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.funcao || "-"}</td>
-                          <td className="px-3 py-2 font-medium whitespace-nowrap">{fmtDate(r.data)}</td>
-                          <td className="px-3 py-2 text-primary font-semibold whitespace-nowrap">{r.obra_nome || "-"}</td>
-                          <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.contratante || "-"}</td>
-                          <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.local || "-"}</td>
-                          <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.encarregado || "-"}</td>
-                          <td className="px-3 py-2 text-xs capitalize whitespace-nowrap">{r.turno || "-"}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                              r.clima === "Cancelou" ? "bg-red-100 text-red-700" :
-                              r.clima === "Folga" ? "bg-yellow-100 text-yellow-700" :
-                              "bg-green-100 text-green-700"
-                            }`}>
-                              {r.clima || "Trabalhou"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+<tr>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Data</th>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Funcionário</th>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Função</th>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">OGS / Contratante</th>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Equipe</th>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Encarregado</th>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Preenchido por</th>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Turno</th>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Entrada</th>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Saída</th>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Origem do horário</th>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Alertas</th>
+<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Status</th>
+</tr>
+</thead>
+<tbody>
+{rows.map((r, i) => (
+  <tr key={`${r.rdo_id}-${i}`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+    <td className="px-3 py-2 font-medium whitespace-nowrap">{fmtDate(r.data)}</td>
+    <td className="px-3 py-2 font-semibold whitespace-nowrap">{r.nome || "-"}{r.matricula && <span className="block text-[10px] font-normal text-muted-foreground">Mat. {r.matricula}</span>}</td>
+    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.funcao || "-"}</td>
+    <td className="px-3 py-2 whitespace-nowrap"><span className="text-primary font-semibold">{r.obra_nome || "-"}</span>{r.contratante && <span className="block text-[10px] text-muted-foreground">{r.contratante}</span>}</td>
+    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.equipe || "-"}</td>
+    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.encarregado || "-"}</td>
+    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.preenchido_por || "-"}</td>
+    <td className="px-3 py-2 text-xs capitalize whitespace-nowrap">{r.turno || "-"}</td>
+    <td className="px-3 py-2 font-mono font-semibold whitespace-nowrap">{hhmm(r.entrada) || "-"}</td>
+    <td className="px-3 py-2 font-mono font-semibold whitespace-nowrap">{hhmm(r.saida) || "-"}</td>
+    <td className="px-3 py-2 whitespace-nowrap">
+      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${r.origem_horario === "Individual" ? "bg-blue-100 text-blue-700" : r.origem_horario === "Não informado" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>{r.origem_horario}</span>
+    </td>
+    <td className="px-3 py-2 whitespace-nowrap">
+      {r.alertas.length === 0 ? <span className="text-muted-foreground">-</span> : r.alertas.map(a => (
+        <span key={a} className="mr-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800">{a}</span>
+      ))}
+    </td>
+    <td className="px-3 py-2 whitespace-nowrap">
+      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+        r.clima === "Cancelou" ? "bg-red-100 text-red-700" :
+        r.clima === "Folga" ? "bg-yellow-100 text-yellow-700" :
+        "bg-green-100 text-green-700"
+      }`}>{r.clima || "Trabalhou"}</span>
+    </td>
+  </tr>
+))}
+</tbody>
+</table>
                 </div>
               </>
             )}
