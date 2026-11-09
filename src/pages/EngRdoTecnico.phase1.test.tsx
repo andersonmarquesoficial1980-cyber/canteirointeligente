@@ -68,6 +68,12 @@ beforeEach(() => { state.write.mockClear(); state.toast.mockClear(); state.selec
 afterEach(() => { cleanup(); sessionStorage.clear(); });
 
 describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
+  it("Equipamentos na Obra tem o botão Reportar Problema (canal de ocorrências da Manutenção)", async () => {
+    await mount(mode);
+    fireEvent.click(screen.getByRole("button", { name: /Reportar Problema no Equipamento/ }));
+    expect(await screen.findByRole("heading", { name: "Reportar Problema" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Registrar Ocorrência" })).toBeDisabled();
+  });
   it("exige medição do Binder no envio, mas permite rascunho sem medição", async () => {
     await mount(mode);
     fireEvent.click(screen.getByRole("checkbox", { name: "APLICAÇÃO DE FX II - BINDER" }));

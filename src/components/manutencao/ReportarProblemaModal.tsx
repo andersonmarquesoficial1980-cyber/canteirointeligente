@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TriangleAlert, X, Camera, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,14 @@ import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   onClose: () => void;
-  profile: { user_id: string; nome_completo?: string; email?: string; perfil?: string; role?: string; company_id?: string } | null;
+  /** Se omitido, o modal carrega o perfil do usuário logado. */
+  profile?: { user_id: string; nome_completo?: string; email?: string; perfil?: string; role?: string; company_id?: string } | null;
+  /** Origem gravada na ocorrência (default "encarregado"); o RDO Técnico usa "rdo_tecnico". */
+  origem?: string;
+  /** Frota já preenchida (ex.: equipamento citado no RDO). */
+  frotaInicial?: string;
+  /** Texto de contexto anexado à descrição (ex.: "RDO Técnico — OGS 2539 — 09/11/2026"). */
+  contexto?: string;
 }
 
 async function uploadFoto(file: File): Promise<string | null> {
@@ -17,12 +24,28 @@ async function uploadFoto(file: File): Promise<string | null> {
   return supabase.storage.from("sst-fotos").getPublicUrl(path).data.publicUrl;
 }
 
-export default function ReportarProblemaModal({ onClose, profile }: Props) {
+type PerfilModal = NonNullable<Props["profile"]>;
+
+export default function ReportarProblemaModal({ onClose, profile: profileProp, origem = "encarregado", frotaInicial = "", contexto = "" }: Props) {
+  const [profileCarregado, setProfileCarregado] = useState<PerfilModal | null>(null);
+  const profile = profileProp ?? profileCarregado;
+  useEffect(() => {
+    if (profileProp !== undefined) return;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await (supabase as any).from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+        setProfileCarregado(data ? { ...data, user_id: user.id } : { user_id: user.id, email: user.email });
+      } catch { /* sem perfil o botão de registrar fica desabilitado */ }
+    })();
+  }, [profileProp]);
+
   const { toast } = useToast();
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [frota, setFrota] = useState("");
+  const [frota, setFrota] = useState(frotaInicial);
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [tipo, setTipo] = useState("OCORRÊNCIA");
@@ -56,11 +79,11 @@ export default function ReportarProblemaModal({ onClose, profile }: Props) {
         company_id: profile?.company_id || null,
         frota: frota.trim().toUpperCase() || null,
         titulo: titulo.trim(),
-        descricao: descricao.trim() || null,
+        descricao: [descricao.trim(), contexto ? `[${contexto}]` : ""].filter(Boolean).join("\n") || null,
         tipo,
         prioridade,
         status: "ABERTA",
-        origem: "encarregado",
+        origem,
         solicitante_nome: profile?.nome_completo || profile?.email || "",
         solicitante_perfil: profile?.perfil || profile?.role || "",
         foto_url: fotoUrl,
@@ -183,7 +206,7 @@ export default function ReportarProblemaModal({ onClose, profile }: Props) {
 
         <Button
           onClick={salvar}
-          disabled={salvando || !titulo.trim()}
+          disabled={salvando || !titulo.trim() || !profile}
           className="w-full font-bold py-5 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white"
         >
           {salvando ? "Registrando..." : "Registrar Ocorrência"}

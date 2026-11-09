@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
+import ReportarProblemaModal from "@/components/manutencao/ReportarProblemaModal";
+import { TriangleAlert } from "lucide-react";
 import { ArrowLeft, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTiposServico } from "@/hooks/useFilteredData";
@@ -207,6 +209,7 @@ export default function EngRdoTecnicoEditar() {
     buscar();
   }, [form.ogs_id]);
 
+  const [showReportarProblema, setShowReportarProblema] = useState(false);
   const ogsSelecionada = minhasOgs.find(o => o.id === form.ogs_id);
   const obraSimplificada = isOgsRdoSimplificada(ogsSelecionada?.ogs_number);
   const obraExigeSecao = !!ogsSelecionada?.client_name && /PMSP/i.test(ogsSelecionada.client_name) && form.houve_producao;
@@ -736,6 +739,15 @@ export default function EngRdoTecnicoEditar() {
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40 resize-none"
                   />
                 </div>
+              )}
+
+              <button type="button" onClick={() => setShowReportarProblema(true)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border-2 border-dashed border-orange-400 text-orange-500 font-bold text-sm hover:bg-orange-50 transition-colors">
+                <TriangleAlert className="w-4 h-4" /> Reportar Problema no Equipamento
+              </button>
+              <p className="-mt-2 text-[11px] text-muted-foreground">Abre uma ocorrência direto para a equipe de Manutenção (mesmo canal do Diário de Equipamento).</p>
+              {showReportarProblema && (
+                <ReportarProblemaModal origem="rdo_tecnico" contexto={`RDO Técnico — OGS ${ogsSelecionada?.ogs_number || "—"} — ${form.data || ""}`.trim()} onClose={() => setShowReportarProblema(false)} />
               )}
             </div>
 
