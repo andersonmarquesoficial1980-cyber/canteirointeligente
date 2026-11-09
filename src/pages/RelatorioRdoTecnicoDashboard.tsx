@@ -1212,12 +1212,22 @@ export default function RelatorioRdoTecnicoDashboard() {
         )}
         {tab === "producao" && (
           <div data-testid="producao-extras" className="shrink-0 space-y-2">
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              <KpiCard icon={Activity} titulo="Massa Fria" valor={`${fmtNum(kpis.massaFria)} sacos`} cor="text-sky-600" delta={comparativo.massaFria.delta} deltaPct={comparativo.massaFria.perc} />
-              <KpiCard icon={Activity} titulo="Demolição" valor={`${fmtNum(kpis.demolicao, 1)} m`} cor="text-orange-600" delta={comparativo.demolicao.delta} deltaPct={comparativo.demolicao.perc} />
-              <KpiCard icon={Activity} titulo="Nivelamento de PV" valor={`${fmtNum(kpis.nivelamentoPv)} un`} cor="text-emerald-600" delta={comparativo.nivelamentoPv.delta} deltaPct={comparativo.nivelamentoPv.perc} />
-              <KpiCard icon={Activity} titulo="Caminhões basculantes (exceto massa)" valor={fmtNum(kpis.caminhoes)} cor="text-slate-600" delta={comparativo.caminhoes.delta} deltaPct={comparativo.caminhoes.perc} />
-            </div>
+            {/* só aparece o que a obra/filtro realmente tem; sem variação (a comparação fica em "Comparar com período anterior") */}
+            {[
+              { titulo: "Massa Fria", n: kpis.massaFria, valor: `${fmtNum(kpis.massaFria)} sacos`, cor: "text-sky-600" },
+              { titulo: "Demolição", n: kpis.demolicao, valor: `${fmtNum(kpis.demolicao, 1)} m`, cor: "text-orange-600" },
+              { titulo: "Nivelamento de PV", n: kpis.nivelamentoPv, valor: `${fmtNum(kpis.nivelamentoPv)} un`, cor: "text-emerald-600" },
+              { titulo: "Caminhões basculantes (exceto massa)", n: kpis.caminhoes, valor: fmtNum(kpis.caminhoes), cor: "text-slate-600" },
+            ].filter(c => c.n > 0).length > 0 && (
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                {[
+                  { titulo: "Massa Fria", n: kpis.massaFria, valor: `${fmtNum(kpis.massaFria)} sacos`, cor: "text-sky-600" },
+                  { titulo: "Demolição", n: kpis.demolicao, valor: `${fmtNum(kpis.demolicao, 1)} m`, cor: "text-orange-600" },
+                  { titulo: "Nivelamento de PV", n: kpis.nivelamentoPv, valor: `${fmtNum(kpis.nivelamentoPv)} un`, cor: "text-emerald-600" },
+                  { titulo: "Caminhões basculantes (exceto massa)", n: kpis.caminhoes, valor: fmtNum(kpis.caminhoes), cor: "text-slate-600" },
+                ].filter(c => c.n > 0).map(c => <KpiCard key={c.titulo} icon={Activity} titulo={c.titulo} valor={c.valor} cor={c.cor} />)}
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
               <div className="rounded-xl border bg-white p-2">
                 <h3 className="text-xs font-bold text-muted-foreground">Produção por tipo de serviço (cada um na sua unidade)</h3>
@@ -1767,7 +1777,8 @@ function DeltaPill({ delta, perc, invert }: { delta: number; perc: number | null
       : "bg-rose-100 text-rose-700";
 
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${cls}`}>
+    <span tabIndex={0} title={`Variação frente ao período anterior de mesmo tamanho. ${isNeutral ? "Sem mudança." : shouldBeGood ? "Verde = melhorou." : "Vermelho = piorou."} ${invert ? "Aqui, menos é melhor. " : ""}Não indica causa (chuva, feriado e liberação atrasada também entram).`}
+      className={`inline-flex cursor-help items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${cls}`}>
       {isNeutral ? <Minus className="w-3 h-3" /> : isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
       {delta > 0 ? "+" : ""}{fmtNum(delta, 1)} ({perc === null ? "Sem base percentual" : `${perc > 0 ? "+" : ""}${fmtNum(perc, 1)}%`})
     </span>
