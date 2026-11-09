@@ -517,7 +517,7 @@ export default function RelatorioFuncionario() {
       const eqCad = equipeCadastro[norm(r.nome)];
       if (eqCad && equipeDia && norm(eqCad) !== norm(equipeDia)) alertas.push(`Cadastro em outra equipe: ${eqCad}`);
       const hs = horariosPorRdo[r.rdo_id];
-      const origem = !ent && !sai ? "Não informado" : hs && hs.size > 1 ? "Individual" : "Padrão do RDO";
+      const origem = r.tipo_rdo === "AUTOMATICO" ? "Automático (presumido)" : !ent && !sai ? "Não informado" : hs && hs.size > 1 ? "Individual" : "Padrão do RDO";
       return { ...r, alertas, origem_horario: origem, equipe: equipeDia };
     });
   };
@@ -770,7 +770,7 @@ export default function RelatorioFuncionario() {
     <td className="px-2 py-1.5 font-mono font-semibold whitespace-nowrap">{hhmm(r.entrada) || "-"}</td>
     <td className="px-2 py-1.5 font-mono font-semibold whitespace-nowrap">{hhmm(r.saida) || "-"}</td>
     <td className="px-2 py-1.5 whitespace-nowrap">
-      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${r.origem_horario === "Individual" ? "bg-blue-100 text-blue-700" : r.origem_horario === "Não informado" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>{r.origem_horario}</span>
+      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${r.origem_horario === "Individual" ? "bg-blue-100 text-blue-700" : r.origem_horario === "Automático (presumido)" ? "bg-purple-100 text-purple-700" : r.origem_horario === "Não informado" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>{r.origem_horario}</span>
     </td>
     <td className="px-2 py-1.5 min-w-[140px]">
       {r.alertas.length === 0 ? <span className="text-muted-foreground">-</span> : r.alertas.map(a => (
