@@ -16,6 +16,11 @@ interface Props {
   frotaInicial?: string;
   /** Texto de contexto anexado à descrição (ex.: "RDO Técnico — OGS 2539 — 09/11/2026"). */
   contexto?: string;
+  /** OGS e data do RDO: as frotas que lançaram diário nessa obra (últimos 14 dias) aparecem primeiro na lista. */
+  ogsNumber?: string;
+  dataReferencia?: string;
+  /** Texto já escrito pelo engenheiro (ex.: equipamentos não conformes): vira descrição e tenta achar a frota citada. */
+  textoInicial?: string;
 }
 
 async function uploadFoto(file: File): Promise<string | null> {
@@ -27,7 +32,7 @@ async function uploadFoto(file: File): Promise<string | null> {
 
 type PerfilModal = NonNullable<Props["profile"]>;
 
-export default function ReportarProblemaModal({ onClose, profile: profileProp, origem = "encarregado", frotaInicial = "", contexto = "" }: Props) {
+export default function ReportarProblemaModal({ onClose, profile: profileProp, origem = "encarregado", frotaInicial = "", contexto = "", ogsNumber = "", dataReferencia = "", textoInicial = "" }: Props) {
   const [profileCarregado, setProfileCarregado] = useState<PerfilModal | null>(null);
   const profile = profileProp ?? profileCarregado;
   useEffect(() => {
@@ -57,13 +62,34 @@ export default function ReportarProblemaModal({ onClose, profile: profileProp, o
     const achou = equipamentos.find(e => e.frota.toUpperCase() === frotaInicial.trim().toUpperCase());
     if (achou) { setEquip(achou); setBuscaFrota(rotulo(achou)); }
   }, [equipamentos]); // eslint-disable-line react-hooks/exhaustive-deps
+  // frotas da obra: diários de equipamento lançados na OGS nos 14 dias até a data do RDO
+  const [frotasObra, setFrotasObra] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!ogsNumber) return;
+    (async () => {
+      try {
+        const fim = dataReferencia || new Date().toISOString().slice(0, 10);
+        const ini = new Date(new Date(fim + "T12:00:00").getTime() - 14 * 86400000).toISOString().slice(0, 10);
+        const { data } = await (supabase as any).from("equipment_diaries").select("equipment_fleet").eq("ogs_number", ogsNumber).gte("date", ini).lte("date", fim);
+        setFrotasObra(new Set(((data || []) as { equipment_fleet: string | null }[]).map(r => String(r.equipment_fleet || "").toUpperCase()).filter(Boolean)));
+      } catch { /* sem vínculo da obra a lista continua completa */ }
+    })();
+  }, [ogsNumber, dataReferencia]);
+  const daObra = (e: Equipamento) => frotasObra.has(e.frota.toUpperCase());
+  // texto do engenheiro cita uma frota cadastrada? (palavra inteira, só pré-seleciona se for única)
+  useEffect(() => {
+    if (!textoInicial || equip || frotaInicial || equipamentos.length === 0) return;
+    const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const achadas = equipamentos.filter(e => new RegExp(`(^|[^A-Za-z0-9])${esc(e.frota)}([^A-Za-z0-9]|$)`, "i").test(textoInicial));
+    if (achadas.length === 1) { setEquip(achadas[0]); setBuscaFrota(rotulo(achadas[0])); }
+  }, [equipamentos]); // eslint-disable-line react-hooks/exhaustive-deps
   const sugestoes = useMemo(() => {
     const q = buscaFrota.trim().toLowerCase();
     const base = q ? equipamentos.filter(e => `${e.frota} ${e.nome || ""} ${e.modelo_completo || ""} ${e.placa || ""}`.toLowerCase().includes(q)) : equipamentos;
-    return base.slice(0, 30);
-  }, [equipamentos, buscaFrota]);
+    return [...base.filter(daObra), ...base.filter(e => !daObra(e))].slice(0, 30);
+  }, [equipamentos, buscaFrota, frotasObra]); // eslint-disable-line react-hooks/exhaustive-deps
   const [titulo, setTitulo] = useState("");
-  const [descricao, setDescricao] = useState("");
+  const [descricao, setDescricao] = useState(textoInicial);
   const [tipo, setTipo] = useState("OCORRÊNCIA");
   const [prioridade, setPrioridade] = useState("NORMAL");
   const [foto, setFoto] = useState<File | null>(null);
@@ -145,7 +171,7 @@ export default function ReportarProblemaModal({ onClose, profile: profileProp, o
               {sugestoes.map(e => (
                 <li key={e.id} role="option" aria-selected={false} className="cursor-pointer px-3 py-2 text-sm hover:bg-secondary"
                   onMouseDown={ev => { ev.preventDefault(); setEquip(e); setBuscaFrota(rotulo(e)); setListaAberta(false); }}>
-                  <span className="font-bold">{e.frota}</span>{e.nome || e.modelo_completo ? <span className="text-muted-foreground"> — {e.nome || e.modelo_completo}</span> : null}
+                  <span className="font-bold">{e.frota}</span>{e.nome || e.modelo_completo ? <span className="text-muted-foreground"> — {e.nome || e.modelo_completo}</span> : null}{daObra(e) && <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">na obra {ogsNumber}</span>}
                 </li>
               ))}
             </ul>

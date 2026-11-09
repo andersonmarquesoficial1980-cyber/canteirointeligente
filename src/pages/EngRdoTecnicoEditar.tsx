@@ -742,12 +742,13 @@ export default function EngRdoTecnicoEditar() {
               )}
 
               <button type="button" onClick={() => setShowReportarProblema(true)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border-2 border-dashed border-orange-400 text-orange-500 font-bold text-sm hover:bg-orange-50 transition-colors">
-                <TriangleAlert className="w-4 h-4" /> Reportar Problema no Equipamento
+                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border-2 font-bold text-sm transition-colors ${form.equipamentos_conforme === "nao" ? "border-orange-500 bg-orange-500 text-white hover:bg-orange-600" : "border-dashed border-orange-400 text-orange-500 hover:bg-orange-50"}`}>
+                <TriangleAlert className="w-4 h-4" /> {form.equipamentos_conforme === "nao" ? "Reportar este problema à Manutenção" : "Reportar Problema no Equipamento"}
               </button>
               <p className="-mt-2 text-[11px] text-muted-foreground">Abre uma ocorrência direto para a equipe de Manutenção (mesmo canal do Diário de Equipamento).</p>
               {showReportarProblema && (
-                <ReportarProblemaModal origem="rdo_tecnico" contexto={`RDO Técnico — OGS ${ogsSelecionada?.ogs_number || "—"} — ${form.data || ""}`.trim()} onClose={() => setShowReportarProblema(false)} />
+                <ReportarProblemaModal origem="rdo_tecnico" contexto={`RDO Técnico — OGS ${ogsSelecionada?.ogs_number || "—"} — ${form.data || ""}`.trim()}
+                  ogsNumber={ogsSelecionada?.ogs_number || ""} dataReferencia={form.data || ""} textoInicial={form.equipamentos_conforme === "nao" ? form.equipamentos_nao_conformes : ""} onClose={() => setShowReportarProblema(false)} />
               )}
             </div>
 
