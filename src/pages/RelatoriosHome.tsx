@@ -23,6 +23,7 @@ const TIPOS_RELATORIO = [
   { id: "funcionario", label: "Localização de Funcionário", icon: MapPin, desc: "Onde esteve em determinado período (via RDO)" },
   { id: "mdo_periodo", label: "MDO por Período", icon: Users, desc: "Cruza RDO x Gestão de Pessoas com presença e divergências" },
   { id: "funcionarios_personalizado", label: "Funcionários Personalizado", icon: Users, desc: "Monte lista manual de colaboradores com campos configuráveis" },
+  { id: "pendencias_pessoal", label: "Pendências de Pessoal", icon: Users, desc: "Demitir, classificar, alocar… marcações do Quadro de Equipes por tipo, para enviar ao RH" },
   { id: "equipamentos_personalizado", label: "Equipamentos Personalizado", icon: Tractor, desc: "Monte lista manual de equipamentos com campos configuráveis" },
   { id: "equipamentos_rdo", label: "Localização de Equipamentos (RDO)", icon: MapPin, desc: "Onde a frota estava por período (via RDO)" },
   { id: "notas_fiscais", label: "Notas Fiscais de Massa", icon: Receipt, desc: "Todas as NFs por OGS e período" },
@@ -404,6 +405,7 @@ export default function RelatoriosHome() {
                   if (t.id === "funcionario") { navigate(withReturnTo(`/relatorios/funcionario${origemQueryPrefix}`)); return; }
                   if (t.id === "mdo_periodo") { navigate(withReturnTo(`/relatorios/mdo-periodo${origemQueryPrefix}`)); return; }
                   if (t.id === "funcionarios_personalizado") { navigate(withReturnTo(`/relatorios/funcionarios-personalizado${origemQueryPrefix}`)); return; }
+                  if (t.id === "pendencias_pessoal") { navigate(withReturnTo(`/relatorios/pendencias-pessoal${origemQueryPrefix}`)); return; }
                   if (t.id === "equipamentos_personalizado") { navigate(withReturnTo(`/relatorios/equipamentos-personalizado${origemQueryPrefix}`)); return; }
                   if (t.id === "equipamentos_rdo") { navigate(withReturnTo(`/relatorios/equipamentos-rdo${origemQueryPrefix}`)); return; }
                   if (t.id === "notas_fiscais") { navigate(withReturnTo(`/relatorios/notas-fiscais${origemQueryPrefix}`)); return; }

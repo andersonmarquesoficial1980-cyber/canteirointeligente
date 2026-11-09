@@ -107,6 +107,7 @@ import AdminRolesPage from "./pages/AdminRolesPage";
 import RelatorioCarreteiros from "./pages/RelatorioCarreteiros";
 import RelatorioFuncionario from "./pages/RelatorioFuncionario";
 import RelatorioMdoPeriodo from "./pages/RelatorioMdoPeriodo";
+import RelatorioPendenciasPessoal from "./pages/RelatorioPendenciasPessoal";
 import RelatorioFuncionariosPersonalizado from "./pages/RelatorioFuncionariosPersonalizado";
 import RelatorioEquipamentosPersonalizado from "./pages/RelatorioEquipamentosPersonalizado";
 import RelatorioEquipamentosRdo from "./pages/RelatorioEquipamentosRdo";
@@ -565,6 +566,7 @@ function AppRoutes() {
         <Route path="/relatorios/carreteiros" element={<RequireModule moduleId="carreteiros"><RelatorioCarreteiros /></RequireModule>} />
         <Route path="/relatorios/funcionario" element={<RequireModule moduleId="relatorios"><RelatorioFuncionario /></RequireModule>} />
         <Route path="/relatorios/mdo-periodo" element={<RequireModule moduleId="relatorios"><RelatorioMdoPeriodo /></RequireModule>} />
+        <Route path="/relatorios/pendencias-pessoal" element={<RequireModule moduleId="relatorios"><RelatorioPendenciasPessoal /></RequireModule>} />
         <Route path="/relatorios/funcionarios-personalizado" element={<RequireModule moduleId="relatorios"><RelatorioFuncionariosPersonalizado /></RequireModule>} />
         <Route path="/relatorios/equipamentos-personalizado" element={<RequireModule moduleId="relatorios"><RelatorioEquipamentosPersonalizado /></RequireModule>} />
         <Route path="/relatorios/equipamentos-rdo" element={<RequireModule moduleId="relatorios"><RelatorioEquipamentosRdo /></RequireModule>} />
