@@ -1,5 +1,5 @@
 import { Star } from "lucide-react";
-import type { TechnicalExtrasForm } from "@/lib/rdoTecnicoExtras";
+import { MOTIVOS_LIBERACAO, type TechnicalExtrasForm } from "@/lib/rdoTecnicoExtras";
 
 const labelCls = "block text-xs font-semibold text-muted-foreground mb-1";
 const inputCls = "w-full h-11 rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/40";
@@ -83,13 +83,32 @@ export function ApoioObraSection({ form, set }: { form: TechnicalExtrasForm; set
     <div className={sectionCls}>
       <h2 className="text-sm font-bold text-foreground">Apoio e Qualidade na Obra</h2>
 
-      <SimNao label="A autorização para iniciar os trabalhos ocorreu dentro do horário previsto?" value={form.autorizacao_no_horario}
-        onChange={v => { set("autorizacao_no_horario", v); if (v === "sim") set("autorizacao_atraso_detalhe", ""); }} />
+      <SimNao label="A obra foi liberada no horário previsto?" hint="Considere a liberação da pista/frente de serviço para iniciar os trabalhos." value={form.autorizacao_no_horario}
+        onChange={v => { set("autorizacao_no_horario", v); if (v === "sim") { set("autorizacao_atraso_detalhe", ""); set("autorizacao_motivo", ""); set("autorizacao_horario_previsto", ""); set("autorizacao_horario_real", ""); } }} />
       {form.autorizacao_no_horario === "nao" && (
-        <div>
-          <label className={labelCls}>Detalhes do atraso na autorização *</label>
-          <textarea value={form.autorizacao_atraso_detalhe} onChange={e => set("autorizacao_atraso_detalhe", e.target.value)} rows={3}
-            placeholder="Informe o horário previsto, o horário real e o motivo..." className={areaCls} />
+        <div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-3">
+          <div>
+            <label className={labelCls}>Motivo da liberação fora do horário *</label>
+            <select value={form.autorizacao_motivo} onChange={e => set("autorizacao_motivo", e.target.value)} className={inputCls}>
+              <option value="">Selecione o motivo</option>
+              {MOTIVOS_LIBERACAO.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Horário previsto</label>
+              <input type="time" value={form.autorizacao_horario_previsto} onChange={e => set("autorizacao_horario_previsto", e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Horário em que foi liberada</label>
+              <input type="time" value={form.autorizacao_horario_real} onChange={e => set("autorizacao_horario_real", e.target.value)} className={inputCls} />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Justificativa da liberação fora do horário *</label>
+            <textarea value={form.autorizacao_atraso_detalhe} onChange={e => set("autorizacao_atraso_detalhe", e.target.value)} rows={3}
+              placeholder="Explique o que aconteceu (quem não liberou, o que foi alegado, o que a equipe fez enquanto aguardava)..." className={areaCls} />
+          </div>
         </div>
       )}
 

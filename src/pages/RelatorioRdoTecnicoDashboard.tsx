@@ -97,6 +97,9 @@ interface RdoTecnicoRow {
   qtd_caminhoes_basculante: number | null;
   autorizacao_no_horario: boolean | null;
   autorizacao_atraso_detalhe: string | null;
+  autorizacao_motivo: string | null;
+  autorizacao_horario_previsto: string | null;
+  autorizacao_horario_real: string | null;
   sinalizacao_presente: boolean | null;
   sinalizacao_nota: number | null;
   controle_tecnologico_presente: boolean | null;
@@ -419,7 +422,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           fresagem_m2, rap_espumado_m2, binder_ton, cbuq_fx3_ton,
           gap_ton, bgs_ton, sma_ton, cauq_rima_ton, bm25_ton, egl_ton, rachao_ton,
           fx_c_ton, demolicao_m, nivelamento_pv_un,
-          retrabalho, retrabalho_oficio, qtd_caminhoes_basculante, autorizacao_no_horario, autorizacao_atraso_detalhe,
+          retrabalho, retrabalho_oficio, qtd_caminhoes_basculante, autorizacao_no_horario, autorizacao_atraso_detalhe, autorizacao_motivo, autorizacao_horario_previsto, autorizacao_horario_real,
           sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, controle_tecnologico_nota, sinalizacao_vertical_nota, massa_fria_sacos,
           geogrelha_m2, bgtc_m3, macadame_m3,
           perc_conclusao_via
@@ -442,7 +445,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           fresagem_m2, rap_espumado_m2, binder_ton, cbuq_fx3_ton,
           gap_ton, bgs_ton, sma_ton, cauq_rima_ton, bm25_ton, egl_ton, rachao_ton,
           fx_c_ton, demolicao_m, nivelamento_pv_un,
-          retrabalho, retrabalho_oficio, qtd_caminhoes_basculante, autorizacao_no_horario, autorizacao_atraso_detalhe,
+          retrabalho, retrabalho_oficio, qtd_caminhoes_basculante, autorizacao_no_horario, autorizacao_atraso_detalhe, autorizacao_motivo, autorizacao_horario_previsto, autorizacao_horario_real,
           sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, controle_tecnologico_nota, sinalizacao_vertical_nota, massa_fria_sacos,
           geogrelha_m2, bgtc_m3, macadame_m3,
           perc_conclusao_via
@@ -908,6 +911,9 @@ export default function RelatorioRdoTecnicoDashboard() {
       "Nota sinalização vertical (1-5)",
       "Nota controle tecnológico (1-5)",
       "Seção da obra",
+      "Motivo da liberação fora do horário",
+      "Horário previsto de liberação",
+      "Horário real de liberação",
     ];
 
     const linhas = linhasFiltradas.map((r) => [
@@ -943,6 +949,9 @@ export default function RelatorioRdoTecnicoDashboard() {
       r.sinalizacao_vertical_nota == null ? "" : String(r.sinalizacao_vertical_nota),
       r.controle_tecnologico_nota == null ? "" : String(r.controle_tecnologico_nota),
       r.houve_producao ? r.tipo_secao || "" : "",
+      r.autorizacao_motivo || "",
+      (r.autorizacao_horario_previsto || "").slice(0, 5),
+      (r.autorizacao_horario_real || "").slice(0, 5),
     ]);
 
     const csv = "﻿" + [head, ...linhas].map((l) => l.map(csvEscape).join(";")).join("\n");

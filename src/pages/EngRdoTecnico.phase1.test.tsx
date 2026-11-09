@@ -53,7 +53,7 @@ const NOTA_SINALIZACAO = "Nível de qualidade, planejamento e disponibilidade da
 const NOTA_CT = "Nível de qualidade, planejamento e disponibilidade da equipe de controle tecnológico *";
 const NOTA_VERTICAL = "Qualidade da sinalização vertical (balizadores e placas) hoje *";
 function preencherApoio() {
-  fireEvent.click(question("A autorização para iniciar os trabalhos ocorreu dentro do horário previsto?").getByRole("button", { name: "Sim" }));
+  fireEvent.click(question("A obra foi liberada no horário previsto?").getByRole("button", { name: "Sim" }));
   fireEvent.click(question("Equipe de sinalização presente na obra no horário programado?").getByRole("button", { name: "Sim" }));
   fireEvent.click(question(NOTA_SINALIZACAO).getByRole("button", { name: "4 estrelas" }));
   fireEvent.click(question("Equipe de controle tecnológico esteve presente e no horário na obra hoje?").getByRole("button", { name: "Sim" }));
@@ -170,10 +170,13 @@ describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
 
   it("apoio e qualidade: autorização fora do horário exige detalhe; sinalização ausente dispensa nota", async () => {
     await mount(mode);
-    fireEvent.click(question("A autorização para iniciar os trabalhos ocorreu dentro do horário previsto?").getByRole("button", { name: "Não" }));
+    fireEvent.click(question("A obra foi liberada no horário previsto?").getByRole("button", { name: "Não" }));
     await act(async () => { submit(mode); });
-    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Descreva os detalhes do atraso na autorização" }));
-    fireEvent.change(screen.getByPlaceholderText("Informe o horário previsto, o horário real e o motivo..."), { target: { value: "Liberação às 9h" } });
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Selecione o motivo da liberação fora do horário" }));
+    fireEvent.change(screen.getByDisplayValue("Selecione o motivo"), { target: { value: "Fiscalização não liberou a pista" } });
+    await act(async () => { submit(mode); });
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Justifique a liberação fora do horário" }));
+    fireEvent.change(screen.getByPlaceholderText(/Explique o que aconteceu/), { target: { value: "Liberação às 9h" } });
     fireEvent.click(question("Equipe de sinalização presente na obra no horário programado?").getByRole("button", { name: "Não" }));
     expect(screen.queryByText(NOTA_SINALIZACAO)).not.toBeInTheDocument();
     await act(async () => { submit(mode); });

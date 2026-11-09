@@ -48,6 +48,9 @@ interface Rdo {
   qtd_caminhoes_basculante: number | null;
   autorizacao_no_horario: boolean | null;
   autorizacao_atraso_detalhe: string | null;
+  autorizacao_motivo: string | null;
+  autorizacao_horario_previsto: string | null;
+  autorizacao_horario_real: string | null;
   sinalizacao_presente: boolean | null;
   sinalizacao_nota: number | null;
   controle_tecnologico_presente: boolean | null;
@@ -196,8 +199,10 @@ export default function EngRdoTecnicoDetalhe() {
         ["Equipamentos na Obra", rdo.equipamentos_conforme == null ? "—" : rdo.equipamentos_conforme ? "Conforme" : "Não Conforme"],
         ["Retrabalho", rdo.retrabalho ? `Sim — ${rdo.retrabalho_oficio || "sem observação"}` : "Não"],
         ["Caminhão Basculante (Exceto Massa)", fmtNum(rdo.qtd_caminhoes_basculante)],
-        ["Autorização no horário previsto", yn(rdo.autorizacao_no_horario)],
-        ["Detalhes do atraso na autorização", rdo.autorizacao_atraso_detalhe || "—"],
+        ["Obra liberada no horário previsto", yn(rdo.autorizacao_no_horario)],
+        ["Motivo da liberação fora do horário", rdo.autorizacao_motivo || "—"],
+        ["Horário previsto / liberada", rdo.autorizacao_horario_previsto || rdo.autorizacao_horario_real ? `${(rdo.autorizacao_horario_previsto || "—").slice(0, 5)} / ${(rdo.autorizacao_horario_real || "—").slice(0, 5)}` : "—"],
+        ["Justificativa da liberação fora do horário", rdo.autorizacao_atraso_detalhe || "—"],
         ["Sinalização presente no horário", yn(rdo.sinalizacao_presente)],
         ["Nota da equipe de sinalização (1-5)", rdo.sinalizacao_nota != null ? String(rdo.sinalizacao_nota) : "—"],
         ["Controle tecnológico presente no horário", yn(rdo.controle_tecnologico_presente)],
@@ -400,8 +405,10 @@ export default function EngRdoTecnicoDetalhe() {
             <Row label="Equipamentos não conformes" value={rdo.equipamentos_nao_conformes} />
             <Row label="Retrabalho" value={rdo.retrabalho ? `Sim — ${rdo.retrabalho_oficio || "sem observação"}` : rdo.retrabalho === false ? "Não" : null} />
             <Row label="Caminhão Basculante (Exceto Massa)" value={rdo.qtd_caminhoes_basculante != null ? String(rdo.qtd_caminhoes_basculante) : null} />
-            <Row label="Autorização no horário previsto" value={yn(rdo.autorizacao_no_horario) === "—" ? null : yn(rdo.autorizacao_no_horario)} />
-            <Row label="Detalhes do atraso na autorização" value={rdo.autorizacao_atraso_detalhe} />
+            <Row label="Obra liberada no horário previsto" value={yn(rdo.autorizacao_no_horario) === "—" ? null : yn(rdo.autorizacao_no_horario)} />
+            <Row label="Motivo da liberação fora do horário" value={rdo.autorizacao_motivo} />
+            <Row label="Horário previsto / liberada" value={rdo.autorizacao_horario_previsto || rdo.autorizacao_horario_real ? `${(rdo.autorizacao_horario_previsto || "—").slice(0, 5)} / ${(rdo.autorizacao_horario_real || "—").slice(0, 5)}` : null} />
+            <Row label="Justificativa da liberação fora do horário" value={rdo.autorizacao_atraso_detalhe} />
             <Row label="Sinalização presente no horário" value={yn(rdo.sinalizacao_presente) === "—" ? null : yn(rdo.sinalizacao_presente)} />
             <Row label="Nota da equipe de sinalização" value={rdo.sinalizacao_nota != null ? `${rdo.sinalizacao_nota} de 5` : null} />
             <Row label="Controle tecnológico presente no horário" value={yn(rdo.controle_tecnologico_presente) === "—" ? null : yn(rdo.controle_tecnologico_presente)} />

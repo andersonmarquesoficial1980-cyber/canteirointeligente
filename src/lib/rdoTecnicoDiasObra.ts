@@ -24,6 +24,8 @@ export interface DiaRdoRow {
   [campo: string]: any;
 }
 
+import { atrasoMinutos, responsavelLiberacao, type ResponsavelLiberacao } from "@/lib/rdoTecnicoExtras";
+
 export type StatusDia = "trabalhado" | "sem_producao" | "sem_rdo";
 
 export const CATEGORIAS_SEM_PRODUCAO = [
@@ -112,7 +114,9 @@ const SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 export const diaSemana = (iso: string) => SEMANA[new Date(toMs(iso)).getUTCDay()];
 
 // ---------- estrutura do resultado ----------
+export interface LiberacaoRdo { motivo: string; responsavel: ResponsavelLiberacao; previsto: string; real: string; atrasoMin: number | null; justificativa: string }
 export interface RdoDoDia {
+  liberacao: LiberacaoRdo | null; // só quando "obra liberada no horário?" = Não
   id: string; engenheiroId: string | null; equipe: string; status: string;
   houveProducao: boolean; producao: Producao; servicos: { rotulo: string; valor: number; un: string }[];
   motivo: MotivoClassificado | null; choveu: boolean; intensidade: string;
@@ -123,6 +127,7 @@ export interface DiaObra {
   motivoTexto: string; producao: Producao; rdos: RdoDoDia[];
   faltantes: string[]; // engenheiros esperados sem RDO neste dia
   choveuMasProduziu: boolean;
+  liberacao: LiberacaoRdo | null; // liberação fora do horário (primeira com atraso do dia)
 }
 export interface FaltaRdo { ogs: string; engenheiroId: string; datas: string[] }
 
@@ -132,6 +137,8 @@ export interface ResumoObra {
   rdosFaltantes: number; producao: Producao;
   porCategoria: { categoria: CategoriaSemProducao; dias: number; perda: boolean }[];
   dias: DiaObra[]; faltas: FaltaRdo[];
+  /** Dias produtivos em que a obra não foi liberada no horário, por responsável. */
+  liberacaoAtrasada: { dias: number; minutos: number; porResponsavel: { responsavel: ResponsavelLiberacao; dias: number; minutos: number }[] };
 }
 
 export interface OpcoesDias {
@@ -189,7 +196,13 @@ export function calcularDiasPorObra(rows: DiaRdoRow[], op: OpcoesDias): ResumoOb
       const lista = porDia.get(data) || [];
       const rdos: RdoDoDia[] = lista.map(r => {
         const motivo = r.houve_producao ? null : classificarMotivo(r);
+        const liberacao: LiberacaoRdo | null = r.houve_producao && r.autorizacao_no_horario === false ? {
+          motivo: r.autorizacao_motivo || "", responsavel: responsavelLiberacao(r.autorizacao_motivo),
+          previsto: String(r.autorizacao_horario_previsto || "").slice(0, 5), real: String(r.autorizacao_horario_real || "").slice(0, 5),
+          atrasoMin: atrasoMinutos(r.autorizacao_horario_previsto, r.autorizacao_horario_real), justificativa: (r.autorizacao_atraso_detalhe || "").trim(),
+        } : null;
         return {
+          liberacao,
           id: r.id, engenheiroId: r.engenheiro_id, equipe: (r.equipe || "").trim(), status: r.status,
           houveProducao: !!r.houve_producao, producao: producaoDoRdo(r), servicos: servicosDoRdo(r),
           motivo, choveu: !!r.choveu, intensidade: r.intensidade_chuva || "",
@@ -211,6 +224,7 @@ export function calcularDiasPorObra(rows: DiaRdoRow[], op: OpcoesDias): ResumoOb
       return {
         ogs, data, dow: diaSemana(data), status, categoria, motivoTexto, producao: prod, rdos, faltantes,
         choveuMasProduziu: trabalhou && rdos.some(r => r.choveu),
+        liberacao: rdos.find(r => r.liberacao)?.liberacao ?? null,
       };
     });
 
@@ -221,7 +235,15 @@ export function calcularDiasPorObra(rows: DiaRdoRow[], op: OpcoesDias): ResumoOb
     const porCat = new Map<CategoriaSemProducao, number>();
     dias.filter(d => d.status === "sem_producao").forEach(d => porCat.set(d.categoria!, (porCat.get(d.categoria!) || 0) + 1));
     const producao = dias.reduce((a, d) => ({ ton: a.ton + d.producao.ton, m2: a.m2 + d.producao.m2, m3: a.m3 + d.producao.m3 }), { ton: 0, m2: 0, m3: 0 });
+    const libMap = new Map<ResponsavelLiberacao, { dias: number; minutos: number }>();
+    dias.forEach(d => { if (d.liberacao) { const a = libMap.get(d.liberacao.responsavel) || { dias: 0, minutos: 0 }; libMap.set(d.liberacao.responsavel, { dias: a.dias + 1, minutos: a.minutos + (d.liberacao.atrasoMin ?? 0) }); } });
+    const liberacaoAtrasada = {
+      dias: dias.filter(d => d.liberacao).length,
+      minutos: dias.reduce((s, d) => s + (d.liberacao?.atrasoMin ?? 0), 0),
+      porResponsavel: [...libMap].map(([responsavel, v]) => ({ responsavel, ...v })).sort((a, b) => b.dias - a.dias),
+    };
     return {
+      liberacaoAtrasada,
       ogs, inicio: datasObra[0] || periodo.inicio, fim: datasObra[datasObra.length - 1] || periodo.fim,
       diasNoPeriodo: dias.length,
       diasTrabalhados: dias.filter(d => d.status === "trabalhado").length,

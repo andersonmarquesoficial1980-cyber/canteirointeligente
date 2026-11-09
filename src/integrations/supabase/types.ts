@@ -6143,6 +6143,9 @@ export type Database = {
           qtd_caminhoes_basculante: number | null
           autorizacao_no_horario: boolean | null
           autorizacao_atraso_detalhe: string | null
+          autorizacao_motivo: string | null
+          autorizacao_horario_previsto: string | null
+          autorizacao_horario_real: string | null
           sinalizacao_presente: boolean | null
           sinalizacao_nota: number | null
           controle_tecnologico_presente: boolean | null
@@ -6212,6 +6215,9 @@ export type Database = {
           qtd_caminhoes_basculante?: number | null
           autorizacao_no_horario?: boolean | null
           autorizacao_atraso_detalhe?: string | null
+          autorizacao_motivo?: string | null
+          autorizacao_horario_previsto?: string | null
+          autorizacao_horario_real?: string | null
           sinalizacao_presente?: boolean | null
           sinalizacao_nota?: number | null
           controle_tecnologico_presente?: boolean | null
@@ -6281,6 +6287,9 @@ export type Database = {
           qtd_caminhoes_basculante?: number | null
           autorizacao_no_horario?: boolean | null
           autorizacao_atraso_detalhe?: string | null
+          autorizacao_motivo?: string | null
+          autorizacao_horario_previsto?: string | null
+          autorizacao_horario_real?: string | null
           sinalizacao_presente?: boolean | null
           sinalizacao_nota?: number | null
           controle_tecnologico_presente?: boolean | null

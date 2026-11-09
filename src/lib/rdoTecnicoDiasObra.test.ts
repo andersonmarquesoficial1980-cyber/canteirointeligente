@@ -45,3 +45,20 @@ describe("calcularDiasPorObra", () => {
     expect(o.faltas.flatMap(f => f.datas)).toEqual(["2026-10-08"]);
   });
 });
+
+describe("liberação fora do horário", () => {
+  it("agrega dias, atraso e responsável; só em dia produtivo", () => {
+    const rows = [
+      r("2026-10-05", "G", { houve_producao: true, cbuq_fx3_ton: 100, autorizacao_no_horario: false, autorizacao_motivo: "Fiscalização não liberou a pista", autorizacao_horario_previsto: "07:00:00", autorizacao_horario_real: "09:30:00", autorizacao_atraso_detalhe: "Fiscal chegou tarde" }),
+      r("2026-10-06", "G", { houve_producao: true, cbuq_fx3_ton: 80, autorizacao_no_horario: false, autorizacao_motivo: "Condições climáticas" }),
+      r("2026-10-07", "G", { houve_producao: true, cbuq_fx3_ton: 90, autorizacao_no_horario: true }),
+    ];
+    const [obra] = calcularDiasPorObra(rows, { periodo: { inicio: "2026-10-01", fim: "2026-10-07" }, ultimoDiaEsperado: "2026-10-31" });
+    expect(obra.liberacaoAtrasada.dias).toBe(2);
+    expect(obra.liberacaoAtrasada.minutos).toBe(150);
+    expect(obra.liberacaoAtrasada.porResponsavel.map(x => x.responsavel).sort()).toEqual(["Cliente / fiscalização", "Clima"]);
+    const d5 = obra.dias.find(d => d.data === "2026-10-05")!;
+    expect(d5.liberacao).toMatchObject({ previsto: "07:00", real: "09:30", atrasoMin: 150 });
+    expect(obra.dias.find(d => d.data === "2026-10-07")!.liberacao).toBeNull();
+  });
+});

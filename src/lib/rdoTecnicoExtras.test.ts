@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { getTechnicalExtrasError, toIntOrNull, type TechnicalExtrasForm } from "./rdoTecnicoExtras";
+import { atrasoMinutos, getTechnicalExtrasError, responsavelLiberacao, toIntOrNull, type TechnicalExtrasForm } from "./rdoTecnicoExtras";
 
-const ok: TechnicalExtrasForm = { houve_producao: true, retrabalho: false, retrabalho_oficio: "", autorizacao_no_horario: "sim", autorizacao_atraso_detalhe: "",
+const ok: TechnicalExtrasForm = { houve_producao: true, retrabalho: false, retrabalho_oficio: "", autorizacao_no_horario: "sim", autorizacao_atraso_detalhe: "", autorizacao_motivo: "", autorizacao_horario_previsto: "", autorizacao_horario_real: "",
   sinalizacao_presente: "sim", sinalizacao_nota: 3, controle_tecnologico_presente: "nao", controle_tecnologico_nota: 0, sinalizacao_vertical_nota: 2 };
 
 describe("Extras do RDO Técnico", () => {
@@ -13,8 +13,9 @@ describe("Extras do RDO Técnico", () => {
   });
   it.each([
     [{ retrabalho: true, retrabalho_oficio: "  " }, "Preencha a Obs Retrabalho"],
-    [{ autorizacao_no_horario: "" as const }, "Informe se a autorização para iniciar ocorreu no horário previsto"],
-    [{ autorizacao_no_horario: "nao" as const }, "Descreva os detalhes do atraso na autorização"],
+    [{ autorizacao_no_horario: "" as const }, "Informe se a obra foi liberada no horário previsto"],
+    [{ autorizacao_no_horario: "nao" as const }, "Selecione o motivo da liberação fora do horário"],
+    [{ autorizacao_no_horario: "nao" as const, autorizacao_motivo: "Condições climáticas" }, "Justifique a liberação fora do horário"],
     [{ sinalizacao_presente: "" as const }, "Informe se a equipe de sinalização estava presente no horário"],
     [{ sinalizacao_nota: 0 }, "Avalie a equipe de sinalização (1 a 5)"],
     [{ controle_tecnologico_presente: "" as const }, "Informe se o controle tecnológico esteve presente no horário"],
@@ -24,5 +25,9 @@ describe("Extras do RDO Técnico", () => {
   it("sinalização ausente dispensa a nota", () => expect(getTechnicalExtrasError({ ...ok, sinalizacao_presente: "nao", sinalizacao_nota: 0 }, "enviado")).toBeNull());
   it("converte quantidade de caminhões para inteiro não negativo", () => {
     expect([toIntOrNull(""), toIntOrNull("7"), toIntOrNull("7,9"), toIntOrNull("-3"), toIntOrNull("abc")]).toEqual([null, 7, 7, 0, null]);
+  });
+  it("calcula atraso e responsável da liberação", () => {
+    expect([atrasoMinutos("07:00", "09:30:00"), atrasoMinutos("07:00", ""), atrasoMinutos("09:00", "07:00")]).toEqual([150, null, null]);
+    expect([responsavelLiberacao("Fiscalização não liberou a pista"), responsavelLiberacao("Condições climáticas"), responsavelLiberacao(null)]).toEqual(["Cliente / fiscalização", "Clima", "A esclarecer"]);
   });
 });

@@ -5,6 +5,9 @@ export interface TechnicalExtrasForm {
   retrabalho_oficio: string;
   autorizacao_no_horario: "" | "sim" | "nao";
   autorizacao_atraso_detalhe: string;
+  autorizacao_motivo: string;
+  autorizacao_horario_previsto: string;
+  autorizacao_horario_real: string;
   sinalizacao_presente: "" | "sim" | "nao";
   sinalizacao_nota: number;
   controle_tecnologico_presente: "" | "sim" | "nao";
@@ -18,11 +21,48 @@ export const TECHNICAL_EXTRAS_DEFAULTS = {
   qtd_caminhoes_basculante: "",
   autorizacao_no_horario: "" as "" | "sim" | "nao",
   autorizacao_atraso_detalhe: "",
+  autorizacao_motivo: "",
+  autorizacao_horario_previsto: "",
+  autorizacao_horario_real: "",
   sinalizacao_presente: "" as "" | "sim" | "nao",
   sinalizacao_nota: 0,
   controle_tecnologico_presente: "" as "" | "sim" | "nao",
   sinalizacao_vertical_nota: 0,
   controle_tecnologico_nota: 0,
+};
+
+/** Motivos de liberação fora do horário (texto exato gravado e usado pelo Dashboard). */
+export const MOTIVOS_LIBERACAO = [
+  "Fiscalização não liberou a pista",
+  "Cliente / contratante (outro motivo)",
+  "Condições climáticas",
+  "Aguardando sinalização / interdição da via",
+  "Usina / massa asfáltica atrasou",
+  "Equipe ou equipamento da Fremix",
+  "Outro",
+] as const;
+
+/** Quem responde pelo motivo — mostra à diretoria o que foi causa externa. */
+export type ResponsavelLiberacao = "Cliente / fiscalização" | "Clima" | "Terceiros" | "Fremix" | "A esclarecer";
+export const RESPONSAVEL_LIBERACAO: Record<string, ResponsavelLiberacao> = {
+  "Fiscalização não liberou a pista": "Cliente / fiscalização",
+  "Cliente / contratante (outro motivo)": "Cliente / fiscalização",
+  "Condições climáticas": "Clima",
+  "Aguardando sinalização / interdição da via": "Terceiros",
+  "Usina / massa asfáltica atrasou": "Terceiros",
+  "Equipe ou equipamento da Fremix": "Fremix",
+};
+export const responsavelLiberacao = (motivo?: string | null): ResponsavelLiberacao => RESPONSAVEL_LIBERACAO[motivo || ""] ?? "A esclarecer";
+
+/** "HH:MM[:SS]" -> minutos desde 00:00 (null se inválido). */
+export const horaParaMin = (h?: string | null): number | null => {
+  const m = /^(\d{1,2}):(\d{2})/.exec(h || "");
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
+/** Atraso em minutos entre previsto e real (null se faltar dado ou real < previsto). */
+export const atrasoMinutos = (previsto?: string | null, real?: string | null): number | null => {
+  const a = horaParaMin(previsto), b = horaParaMin(real);
+  return a == null || b == null || b < a ? null : b - a;
 };
 
 export const simNaoToBool = (v: string): boolean | null => (v === "sim" ? true : v === "nao" ? false : null);
@@ -36,8 +76,9 @@ export function getTechnicalExtrasError(
 ): string | null {
   if (status !== "enviado" || !form.houve_producao || opts?.simplificado) return null;
   if (form.retrabalho && !form.retrabalho_oficio.trim()) return "Preencha a Obs Retrabalho";
-  if (form.autorizacao_no_horario === "") return "Informe se a autorização para iniciar ocorreu no horário previsto";
-  if (form.autorizacao_no_horario === "nao" && !form.autorizacao_atraso_detalhe.trim()) return "Descreva os detalhes do atraso na autorização";
+  if (form.autorizacao_no_horario === "") return "Informe se a obra foi liberada no horário previsto";
+  if (form.autorizacao_no_horario === "nao" && !form.autorizacao_motivo) return "Selecione o motivo da liberação fora do horário";
+  if (form.autorizacao_no_horario === "nao" && !form.autorizacao_atraso_detalhe.trim()) return "Justifique a liberação fora do horário";
   if (form.sinalizacao_presente === "") return "Informe se a equipe de sinalização estava presente no horário";
   if (form.sinalizacao_presente === "sim" && !form.sinalizacao_nota) return "Avalie a equipe de sinalização (1 a 5)";
   if (form.controle_tecnologico_presente === "") return "Informe se o controle tecnológico esteve presente no horário";
@@ -69,6 +110,9 @@ export const OGS_SIMPLIFICADA_PAYLOAD_RESET = {
   perc_conclusao_via: null,
   autorizacao_no_horario: null,
   autorizacao_atraso_detalhe: null,
+  autorizacao_motivo: null,
+  autorizacao_horario_previsto: null,
+  autorizacao_horario_real: null,
   sinalizacao_presente: null,
   sinalizacao_nota: null,
   controle_tecnologico_presente: null,
