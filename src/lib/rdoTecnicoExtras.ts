@@ -13,6 +13,8 @@ export interface TechnicalExtrasForm {
   controle_tecnologico_presente: "" | "sim" | "nao";
   sinalizacao_vertical_nota: number;
   controle_tecnologico_nota: number;
+  sinalizacao_ausente_motivo: string;
+  controle_tecnologico_ausente_motivo: string;
 }
 
 export const TECHNICAL_EXTRAS_DEFAULTS = {
@@ -29,6 +31,8 @@ export const TECHNICAL_EXTRAS_DEFAULTS = {
   controle_tecnologico_presente: "" as "" | "sim" | "nao",
   sinalizacao_vertical_nota: 0,
   controle_tecnologico_nota: 0,
+  sinalizacao_ausente_motivo: "",
+  controle_tecnologico_ausente_motivo: "",
 };
 
 /** Motivos de liberação fora do horário (texto exato gravado e usado pelo Dashboard). */
@@ -80,8 +84,10 @@ export function getTechnicalExtrasError(
   if (form.autorizacao_no_horario === "nao" && !form.autorizacao_motivo) return "Selecione o motivo da liberação fora do horário";
   if (form.autorizacao_no_horario === "nao" && !form.autorizacao_atraso_detalhe.trim()) return "Justifique a liberação fora do horário";
   if (form.sinalizacao_presente === "") return "Informe se a equipe de sinalização estava presente no horário";
+  if (form.sinalizacao_presente === "nao" && !form.sinalizacao_ausente_motivo.trim()) return "Explique por que a equipe de sinalização não estava presente no horário";
   if (form.sinalizacao_presente === "sim" && !form.sinalizacao_nota) return "Avalie a equipe de sinalização (1 a 5)";
   if (form.controle_tecnologico_presente === "") return "Informe se o controle tecnológico esteve presente no horário";
+  if (form.controle_tecnologico_presente === "nao" && !form.controle_tecnologico_ausente_motivo.trim()) return "Explique por que o controle tecnológico não esteve presente no horário";
   if (form.controle_tecnologico_presente === "sim" && !form.controle_tecnologico_nota) return "Avalie a equipe de controle tecnológico (1 a 5)";
   if (!form.sinalizacao_vertical_nota) return "Avalie a sinalização vertical (1 a 5)";
   return null;
@@ -117,5 +123,7 @@ export const OGS_SIMPLIFICADA_PAYLOAD_RESET = {
   sinalizacao_nota: null,
   controle_tecnologico_presente: null,
   controle_tecnologico_nota: null,
+  sinalizacao_ausente_motivo: null,
+  controle_tecnologico_ausente_motivo: null,
   sinalizacao_vertical_nota: null,
 };

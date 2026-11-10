@@ -24,6 +24,16 @@ function SimNao({ label, hint, value, onChange }: { label: string; hint?: string
   );
 }
 
+/** Caixa de explicação rápida exibida sempre que o engenheiro responde "Não". */
+function ExplicacaoNao({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (t: string) => void; placeholder: string }) {
+  return (
+    <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
+      <label className={labelCls}>{label}</label>
+      <textarea value={value} onChange={e => onChange(e.target.value)} rows={2} placeholder={placeholder} className={areaCls} />
+    </div>
+  );
+}
+
 function Estrelas({ label, hint, value, onChange }: { label: string; hint?: string; value: number; onChange: (n: number) => void }) {
   return (
     <div>
@@ -115,7 +125,11 @@ export function ApoioObraSection({ form, set }: { form: TechnicalExtrasForm; set
       <div className="border-t border-border" />
 
       <SimNao label="Equipe de sinalização presente na obra no horário programado?" value={form.sinalizacao_presente}
-        onChange={v => { set("sinalizacao_presente", v); if (v === "nao") set("sinalizacao_nota", 0); }} />
+        onChange={v => { set("sinalizacao_presente", v); if (v === "nao") set("sinalizacao_nota", 0); else set("sinalizacao_ausente_motivo", ""); }} />
+      {form.sinalizacao_presente === "nao" && (
+        <ExplicacaoNao label="O que aconteceu com a equipe de sinalização? *" value={form.sinalizacao_ausente_motivo} onChange={t => set("sinalizacao_ausente_motivo", t)}
+          placeholder="Ex: equipe não compareceu, chegou 2h atrasada, faltou material..." />
+      )}
       {form.sinalizacao_presente === "sim" && (
         <Estrelas label="Nível de qualidade, planejamento e disponibilidade da equipe de sinalização *"
           hint="5 estrelas = trabalho perfeito em qualidade, pontualidade, comunicação com a obra e velocidade na pintura."
@@ -125,7 +139,11 @@ export function ApoioObraSection({ form, set }: { form: TechnicalExtrasForm; set
       <div className="border-t border-border" />
 
       <SimNao label="Equipe de controle tecnológico esteve presente e no horário na obra hoje?" value={form.controle_tecnologico_presente}
-        onChange={v => { set("controle_tecnologico_presente", v); if (v === "nao") set("controle_tecnologico_nota", 0); }} />
+        onChange={v => { set("controle_tecnologico_presente", v); if (v === "nao") set("controle_tecnologico_nota", 0); else set("controle_tecnologico_ausente_motivo", ""); }} />
+      {form.controle_tecnologico_presente === "nao" && (
+        <ExplicacaoNao label="O que aconteceu com o controle tecnológico? *" value={form.controle_tecnologico_ausente_motivo} onChange={t => set("controle_tecnologico_ausente_motivo", t)}
+          placeholder="Ex: laboratório não enviou equipe, chegou após a aplicação..." />
+      )}
       {form.controle_tecnologico_presente === "sim" && (
         <Estrelas label="Nível de qualidade, planejamento e disponibilidade da equipe de controle tecnológico *"
           hint="5 estrelas = trabalho perfeito em qualidade, pontualidade, comunicação com a obra e velocidade na coleta de trabalho e dados."

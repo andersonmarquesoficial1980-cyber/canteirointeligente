@@ -45,7 +45,7 @@ import { getEngineeringMonitoringRoster } from "@/lib/engineeringMonitoringRoste
 import { ENGINEERING_VALIDATION_START, loadEngineeringQueue, filterEngineeringQueue } from "@/lib/engineeringQueue";
 import { toSaoPauloISODate } from "@/lib/date-local";
 import { classifyUnlinkedValidationRdos } from "@/lib/validationUnlinked";
-import { climaSplit, equipesVisiveisFiltro, perdasPorMotivo, producaoPorServico, resumoPorOgs, secaoDaObra, somaCampo } from "@/lib/rdoTecnicoDashboardMetrics";
+import { MOTIVO_EXPLICACAO, climaSplit, equipesVisiveisFiltro, motivoLabel, perdasPorMotivo, producaoPorServico, resumoPorOgs, secaoDaObra, situacaoClima, situacaoUsina, somaCampo } from "@/lib/rdoTecnicoDashboardMetrics";
 import { NOTA_BAIXA, computeApoioMetrics } from "@/lib/rdoTecnicoApoioMetrics";
 import { ENSAIOS_SERVICE, INFRA_SERVICE, TECHNICAL_QUANTITIES, hasServiceToken } from "@/lib/technicalProduction";
 import { Interpretar, Previa, TabelaPaginada, type Coluna } from "./rdoTecnicoDashboard/Tabela";
@@ -103,6 +103,8 @@ interface RdoTecnicoRow {
   sinalizacao_presente: boolean | null;
   sinalizacao_nota: number | null;
   controle_tecnologico_presente: boolean | null;
+  sinalizacao_ausente_motivo?: string | null;
+  controle_tecnologico_ausente_motivo?: string | null;
   sinalizacao_vertical_nota: number | null;
   controle_tecnologico_nota: number | null;
   massa_fria_sacos: number | null;
@@ -325,8 +327,10 @@ function camposDetalhe(r: RdoTecnicoRow, assunto: AssuntoTab, engMap: Record<str
       { label: "Autorização no horário previsto", value: simNao(r.autorizacao_no_horario) },
       { label: "Detalhes do atraso", value: r.autorizacao_atraso_detalhe || "-" },
       { label: "Sinalização presente no horário", value: simNao(r.sinalizacao_presente) },
+      { label: "Explicação (sinalização ausente)", value: r.sinalizacao_ausente_motivo || "-" },
       { label: "Qualidade da sinalização", value: estrelas(r.sinalizacao_nota) },
       { label: "Controle tecnológico no horário", value: simNao(r.controle_tecnologico_presente) },
+      { label: "Explicação (controle tecnológico ausente)", value: r.controle_tecnologico_ausente_motivo || "-" },
       { label: "Qualidade do controle tecnológico", value: estrelas(r.controle_tecnologico_nota) },
       { label: "Sinalização vertical", value: estrelas(r.sinalizacao_vertical_nota) },
     );
@@ -345,7 +349,7 @@ function detalheAssunto(tab: AssuntoTab, r: RdoTecnicoRow) {
     : tab === "meteo"
       ? (r.houve_producao ? `Chuva ${r.intensidade_chuva || "não informada"}` : "Chuva parou a produção")
       : tab === "usina"
-        ? `${r.usina_programada || "Sem usina"} • ${r.usina_atendeu === false ? `Não atendeu (${r.usina_nao_atendeu_motivo || "sem motivo"})` : "Atendeu/sem avaliação"}`
+        ? `${r.usina_programada || "Sem usina"} • ${r.usina_atendeu === false ? `Não atendeu (${r.usina_nao_atendeu_motivo || "sem motivo"})` : r.usina_atendeu === true ? "Atendeu" : "Sem avaliação"}`
         : tab === "apoio"
           ? [r.retrabalho ? `Retrabalho (${r.retrabalho_oficio || "s/ obs"})` : null,
               r.qtd_caminhoes_basculante != null ? `${r.qtd_caminhoes_basculante} basculante(s)` : null,
@@ -401,6 +405,10 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
   const [rows, setRows] = useState<RdoTecnicoRow[]>([]);
   const [rowsPrev, setRowsPrev] = useState<RdoTecnicoRow[]>([]);
   const [ogsOptions, setOgsOptions] = useState<FiltroOption[]>([]);
+  const [ogsPmsp, setOgsPmsp] = useState<string[]>([]);
+  const [motivoSel, setMotivoSel] = useState<string | null>(null);
+  const [fUsina, setFUsina] = useState({ usina: "", equipe: "", ogs: "", situacao: "" });
+  const [fClima, setFClima] = useState({ equipe: "", ogs: "", situacao: "", intensidade: "" });
   const [engMap, setEngMap] = useState<Record<string, string>>({});
   const [equipesCadastro, setEquipesCadastro] = useState<{ nome: string; exibir?: boolean | null }[]>([]);
   const [engenheirosIdentificados, setEngenheirosIdentificados] = useState<EngenheiroIdentificado[]>([]);
@@ -437,7 +445,7 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
           gap_ton, bgs_ton, sma_ton, cauq_rima_ton, bm25_ton, egl_ton, rachao_ton,
           fx_c_ton, demolicao_m, nivelamento_pv_un,
           retrabalho, retrabalho_oficio, qtd_caminhoes_basculante, autorizacao_no_horario, autorizacao_atraso_detalhe, autorizacao_motivo, autorizacao_horario_previsto, autorizacao_horario_real,
-          sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, controle_tecnologico_nota, sinalizacao_vertical_nota, massa_fria_sacos,
+          sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, controle_tecnologico_nota, sinalizacao_vertical_nota, sinalizacao_ausente_motivo, controle_tecnologico_ausente_motivo, massa_fria_sacos,
           geogrelha_m2, bgtc_m3, macadame_m3,
           perc_conclusao_via
         `)
@@ -460,7 +468,7 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
           gap_ton, bgs_ton, sma_ton, cauq_rima_ton, bm25_ton, egl_ton, rachao_ton,
           fx_c_ton, demolicao_m, nivelamento_pv_un,
           retrabalho, retrabalho_oficio, qtd_caminhoes_basculante, autorizacao_no_horario, autorizacao_atraso_detalhe, autorizacao_motivo, autorizacao_horario_previsto, autorizacao_horario_real,
-          sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, controle_tecnologico_nota, sinalizacao_vertical_nota, massa_fria_sacos,
+          sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, controle_tecnologico_nota, sinalizacao_vertical_nota, sinalizacao_ausente_motivo, controle_tecnologico_ausente_motivo, massa_fria_sacos,
           geogrelha_m2, bgtc_m3, macadame_m3,
           perc_conclusao_via
         `)
@@ -500,7 +508,15 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
         if (erroPerfis) throw erroPerfis;
         perfis = (data || []) as EngenheiroIdentificado[];
       }
+      let pmsp: string[] = [];
+      try {
+        if (ogsUniques.length > 0) {
+          const { data: refs } = await (supabase as any).from("ogs_reference").select("ogs_number, client_name").eq("company_id", companyId).in("ogs_number", ogsUniques);
+          pmsp = ((refs || []) as { ogs_number: string; client_name: string | null }[]).filter(o => /PMSP/i.test(o.client_name || "")).map(o => String(o.ogs_number));
+        }
+      } catch { pmsp = []; }
       if (requisicao !== requisicaoAtual.current) return;
+      setOgsPmsp(pmsp);
       setRows(lista as RdoTecnicoRow[]);
       setRowsPrev(listaPrev as RdoTecnicoRow[]);
       setRdosApontador(diariosApontador as RdoApontador[]);
@@ -633,10 +649,9 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
       + (r.rachao_ton || 0)
       + (r.fx_c_ton || 0), 0);
 
-    const areaM2 = linhasFiltradas.reduce((acc, r) => acc
-      + (r.fresagem_m2 || 0)
-      + (r.rap_espumado_m2 || 0)
-      + (r.geogrelha_m2 || 0), 0);
+    const fresagemM2 = somaCampo(linhasFiltradas, "fresagem_m2");
+    const rapM2 = somaCampo(linhasFiltradas, "rap_espumado_m2");
+    const geogrelhaM2 = somaCampo(linhasFiltradas, "geogrelha_m2");
 
     const volumeM3 = linhasFiltradas.reduce((acc, r) => acc
       + (r.bgtc_m3 || 0)
@@ -658,7 +673,9 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
       naoConformeEquip,
       percConformeEquip,
       toneladas,
-      areaM2,
+      fresagemM2,
+      rapM2,
+      geogrelhaM2,
       volumeM3,
       massaFria: somaCampo(linhasFiltradas, "massa_fria_sacos"),
       demolicao: somaCampo(linhasFiltradas, "demolicao_m"),
@@ -696,10 +713,9 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
       + (r.rachao_ton || 0)
       + (r.fx_c_ton || 0), 0);
 
-    const areaM2 = linhasPrevFiltradas.reduce((acc, r) => acc
-      + (r.fresagem_m2 || 0)
-      + (r.rap_espumado_m2 || 0)
-      + (r.geogrelha_m2 || 0), 0);
+    const fresagemM2 = somaCampo(linhasPrevFiltradas, "fresagem_m2");
+    const rapM2 = somaCampo(linhasPrevFiltradas, "rap_espumado_m2");
+    const geogrelhaM2 = somaCampo(linhasPrevFiltradas, "geogrelha_m2");
 
     const volumeM3 = linhasPrevFiltradas.reduce((acc, r) => acc
       + (r.bgtc_m3 || 0)
@@ -717,7 +733,9 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
       naoConformeEquip,
       percConformeEquip,
       toneladas,
-      areaM2,
+      fresagemM2,
+      rapM2,
+      geogrelhaM2,
       volumeM3,
       massaFria: somaCampo(linhasPrevFiltradas, "massa_fria_sacos"),
       demolicao: somaCampo(linhasPrevFiltradas, "demolicao_m"),
@@ -740,7 +758,9 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
       semProducao: calc(kpis.semProducao, kpisPrev.semProducao),
       naoConforme: calc(kpis.naoConformeEquip, kpisPrev.naoConformeEquip),
       toneladas: calc(kpis.toneladas, kpisPrev.toneladas),
-      areaM2: calc(kpis.areaM2, kpisPrev.areaM2),
+      fresagemM2: calc(kpis.fresagemM2, kpisPrev.fresagemM2),
+      rapM2: calc(kpis.rapM2, kpisPrev.rapM2),
+      geogrelhaM2: calc(kpis.geogrelhaM2, kpisPrev.geogrelhaM2),
       volumeM3: calc(kpis.volumeM3, kpisPrev.volumeM3),
       massaFria: calc(kpis.massaFria, kpisPrev.massaFria),
       demolicao: calc(kpis.demolicao, kpisPrev.demolicao),
@@ -795,7 +815,7 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
 
   const perdas = useMemo(() => perdasPorMotivo(linhasFiltradas), [linhasFiltradas]);
   const prodServico = useMemo(() => producaoPorServico(linhasFiltradas), [linhasFiltradas]);
-  const secaoObra = useMemo(() => secaoDaObra(linhasFiltradas), [linhasFiltradas]);
+  const secaoObra = useMemo(() => secaoDaObra(linhasFiltradas, new Set(ogsPmsp)), [linhasFiltradas, ogsPmsp]);
   const resumoOgs = useMemo(() => resumoPorOgs(linhasFiltradas), [linhasFiltradas]);
   const clima = useMemo(() => climaSplit(linhasFiltradas), [linhasFiltradas]);
   const apoioMetrics = useMemo(() => computeApoioMetrics(linhasFiltradas), [linhasFiltradas]);
@@ -857,9 +877,9 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
           id: `${r.id}-${id}`, prioridade: "Média", prioridadePeso: 2, assunto, detalhe, tabDestino: "apoio", rdo: r,
         });
         if (r.autorizacao_no_horario === false) apoio("autorizacao", "Autorização fora do horário", r.autorizacao_atraso_detalhe || "Sem detalhes informados");
-        if (r.sinalizacao_presente === false) apoio("sinalizacao-ausente", "Sinalização ausente no horário", "Equipe de sinalização não estava presente");
+        if (r.sinalizacao_presente === false) apoio("sinalizacao-ausente", "Sinalização ausente no horário", r.sinalizacao_ausente_motivo ? `Equipe de sinalização ausente: ${r.sinalizacao_ausente_motivo}` : "Equipe de sinalização não estava presente");
         else if (r.sinalizacao_nota && r.sinalizacao_nota <= NOTA_BAIXA) apoio("sinalizacao-nota", "Sinalização com nota baixa", `Nota ${r.sinalizacao_nota}/5`);
-        if (r.controle_tecnologico_presente === false) apoio("ct", "Controle tecnológico ausente", "Equipe de controle tecnológico não esteve presente no horário");
+        if (r.controle_tecnologico_presente === false) apoio("ct", "Controle tecnológico ausente", r.controle_tecnologico_ausente_motivo ? `Controle tecnológico ausente: ${r.controle_tecnologico_ausente_motivo}` : "Equipe de controle tecnológico não esteve presente no horário");
         if (r.sinalizacao_vertical_nota && r.sinalizacao_vertical_nota <= NOTA_BAIXA) apoio("vertical", "Sinalização vertical com nota baixa", `Nota ${r.sinalizacao_vertical_nota}/5`);
         if (r.controle_tecnologico_nota && r.controle_tecnologico_nota <= NOTA_BAIXA) apoio("ct-nota", "Controle tecnológico com nota baixa", `Nota ${r.controle_tecnologico_nota}/5`);
         if (r.retrabalho) apoio("retrabalho", "Retrabalho", r.retrabalho_oficio || "Sem observação");
@@ -986,7 +1006,9 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
       ["RDOs sem produção", kpis.semProducao, kpisPrev.semProducao, comparativo.semProducao.delta, comparativo.semProducao.perc ?? "Sem base percentual"],
       ["RDOs não conformes (equipamentos)", kpis.naoConformeEquip, kpisPrev.naoConformeEquip, comparativo.naoConforme.delta, comparativo.naoConforme.perc ?? "Sem base percentual"],
       ["Produção (t)", kpis.toneladas, kpisPrev.toneladas, comparativo.toneladas.delta, comparativo.toneladas.perc ?? "Sem base percentual"],
-      ["Produção (m²)", kpis.areaM2, kpisPrev.areaM2, comparativo.areaM2.delta, comparativo.areaM2.perc ?? "Sem base percentual"],
+      ["Fresagem (m²)", kpis.fresagemM2, kpisPrev.fresagemM2, comparativo.fresagemM2.delta, comparativo.fresagemM2.perc ?? "Sem base percentual"],
+      ["RAP espumado (m²)", kpis.rapM2, kpisPrev.rapM2, comparativo.rapM2.delta, comparativo.rapM2.perc ?? "Sem base percentual"],
+      ["Geogrelha (m²)", kpis.geogrelhaM2, kpisPrev.geogrelhaM2, comparativo.geogrelhaM2.delta, comparativo.geogrelhaM2.perc ?? "Sem base percentual"],
       ["Massa Fria (sacos)", kpis.massaFria, kpisPrev.massaFria, comparativo.massaFria.delta, comparativo.massaFria.perc ?? "Sem base percentual"],
       ["Demolição (m)", kpis.demolicao, kpisPrev.demolicao, comparativo.demolicao.delta, comparativo.demolicao.perc ?? "Sem base percentual"],
       ["Nivelamento de PV (un)", kpis.nivelamentoPv, kpisPrev.nivelamentoPv, comparativo.nivelamentoPv.delta, comparativo.nivelamentoPv.perc ?? "Sem base percentual"],
@@ -1126,7 +1148,9 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
     { titulo: "RDOs com produção", c: comparativo.comProducao, frac: 0 },
     { titulo: "RDOs sem produção", c: comparativo.semProducao, frac: 0, invert: true },
     { titulo: "Produção (t)", c: comparativo.toneladas, frac: 1 },
-    { titulo: "Produção (m²)", c: comparativo.areaM2, frac: 1 },
+    { titulo: "Fresagem (m²)", c: comparativo.fresagemM2, frac: 1 },
+    { titulo: "RAP espumado (m²)", c: comparativo.rapM2, frac: 1 },
+    { titulo: "Geogrelha (m²)", c: comparativo.geogrelhaM2, frac: 1 },
     { titulo: "Produção (m³)", c: comparativo.volumeM3, frac: 1 },
     { titulo: "Massa Fria (sacos)", c: comparativo.massaFria, frac: 0 },
     { titulo: "Demolição (m)", c: comparativo.demolicao, frac: 1 },
@@ -1204,9 +1228,51 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
   );
 
   const renderAssunto = (tab: AssuntoTab) => {
-    const lista = cardsAssunto[tab as keyof typeof cardsAssunto] || [];
+    const listaBase = cardsAssunto[tab as keyof typeof cardsAssunto] || [];
+    const distintos = (f: (r: RdoTecnicoRow) => string | null | undefined) => [...new Set(listaBase.map(f).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    const sel = (rotulo: string, valor: string, set: (v: string) => void, ops: string[], todos = "Todos") => (
+      <label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">{rotulo}
+        <select aria-label={`Filtro ${rotulo}`} value={valor} onChange={e => set(e.target.value)} className="h-8 rounded-lg border bg-white px-2 text-sm font-normal text-foreground">
+          <option value="">{todos}</option>
+          {ops.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </label>
+    );
+    let lista = listaBase;
+    let filtrosUi: ReactNode = null;
+    if (tab === "usina") {
+      lista = listaBase.filter(r => (!fUsina.usina || (r.usina_programada || "Sem usina") === fUsina.usina) && (!fUsina.equipe || (r.equipe || "") === fUsina.equipe)
+        && (!fUsina.ogs || r.ogs_number === fUsina.ogs) && (!fUsina.situacao || situacaoUsina(r) === fUsina.situacao));
+      const ativo = Object.values(fUsina).some(Boolean);
+      filtrosUi = (
+        <div data-testid="filtros-usina" className="shrink-0 flex flex-wrap items-center gap-2 rounded-lg border bg-slate-50 px-3 py-1.5">
+          {sel("Usina", fUsina.usina, v => setFUsina(f => ({ ...f, usina: v })), [...new Set(listaBase.map(r => r.usina_programada || "Sem usina"))].sort((a, b) => a.localeCompare(b, "pt-BR")))}
+          {sel("Equipe", fUsina.equipe, v => setFUsina(f => ({ ...f, equipe: v })), distintos(r => r.equipe))}
+          {sel("OGS", fUsina.ogs, v => setFUsina(f => ({ ...f, ogs: v })), distintos(r => r.ogs_number))}
+          {sel("Situação", fUsina.situacao, v => setFUsina(f => ({ ...f, situacao: v })), ["Atendeu", "Não atendeu", "Sem avaliação"])}
+          <span className="text-xs text-muted-foreground">{lista.length} de {listaBase.length}</span>
+          {ativo && <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setFUsina({ usina: "", equipe: "", ogs: "", situacao: "" })}>Limpar filtros</Button>}
+        </div>
+      );
+    } else if (tab === "meteo") {
+      lista = listaBase.filter(r => (!fClima.equipe || (r.equipe || "") === fClima.equipe) && (!fClima.ogs || r.ogs_number === fClima.ogs)
+        && (!fClima.situacao || situacaoClima(r) === fClima.situacao)
+        && (!fClima.intensidade || (r.intensidade_chuva || "Não informada") === fClima.intensidade));
+      const ativo = Object.values(fClima).some(Boolean);
+      filtrosUi = (
+        <div data-testid="filtros-clima" className="shrink-0 flex flex-wrap items-center gap-2 rounded-lg border bg-slate-50 px-3 py-1.5">
+          {sel("Situação", fClima.situacao, v => setFClima(f => ({ ...f, situacao: v })), ["Choveu e houve produção", "Choveu e parou a produção"])}
+          {sel("Intensidade", fClima.intensidade, v => setFClima(f => ({ ...f, intensidade: v })), [...new Set(listaBase.map(r => r.intensidade_chuva || "Não informada"))].sort((a, b) => a.localeCompare(b, "pt-BR")))}
+          {sel("Equipe", fClima.equipe, v => setFClima(f => ({ ...f, equipe: v })), distintos(r => r.equipe))}
+          {sel("OGS", fClima.ogs, v => setFClima(f => ({ ...f, ogs: v })), distintos(r => r.ogs_number))}
+          <span className="text-xs text-muted-foreground">{lista.length} de {listaBase.length}</span>
+          {ativo && <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setFClima({ equipe: "", ogs: "", situacao: "", intensidade: "" })}>Limpar filtros</Button>}
+        </div>
+      );
+    }
     return (
       <SecaoShell titulo={TITULO_ASSUNTO[tab]} subtitulo={`${lista.length} registro(s) · ${RESUMO_ASSUNTO[tab]}`}>
+        {filtrosUi}
         {tab === "producao" && (
           <div data-testid="atividades-qualitativas" className="shrink-0 flex flex-wrap items-center gap-2 rounded-lg border bg-slate-50 px-3 py-1.5 text-sm">
             <span className="font-semibold">Atividades qualitativas</span>
@@ -1250,8 +1316,8 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
                   </table>
                 </div>
               </div>
-              <div className="rounded-xl border bg-white p-2" data-testid="secao-obra">
-                <h3 className="text-xs font-bold text-muted-foreground">Seção da obra (contratos PMSP) · {secaoObra.comSecao} RDO(s) com seção</h3>
+              {secaoObra.comSecao > 0 && <div className="rounded-xl border bg-white p-2" data-testid="secao-obra">
+                <h3 className="text-xs font-bold text-muted-foreground" title="Pergunta exigida só em obras de contrato PMSP: tipo de pavimento trabalhado (Funcional, Intermediário ou Estrutural).">Seção da obra · {secaoObra.comSecao} RDO(s) com seção · OGS {secaoObra.ogs.join(", ")}</h3>
                 <div className="h-[170px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={secaoObra.itens} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
@@ -1263,7 +1329,7 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-              </div>
+              </div>}
             </div>
           </div>
         )}
@@ -1273,9 +1339,32 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
               <span className="rounded-lg border border-red-300 bg-white px-2 py-0.5">Dias perdidos por causa externa: <strong data-testid="dias-perdidos">{perdas.diasPerdidos}</strong></span>
               <span className="rounded-lg border bg-white px-2 py-0.5">Folga/feriado e sem atividade (não são perda): <strong>{perdas.diasNaoPerda}</strong></span>
             </div>
+            {motivoSel && (() => {
+              const regs = linhasFiltradas.filter(r => !r.houve_producao && motivoLabel(r) === motivoSel);
+              const textoLivre = (r: RdoTecnicoRow) => (r.motivo_sem_producao === "Outro" ? r.outro_motivo_sem_producao : "") || r.observacoes || "";
+              return (
+                <div data-testid="motivo-explicacao" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-bold">{motivoSel} · {regs.length} dia(s)</div>
+                      <p className="mt-0.5 text-muted-foreground">{MOTIVO_EXPLICACAO[motivoSel] || "Motivo informado livremente pelo engenheiro."}</p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" className="h-7 shrink-0 px-2 text-xs" onClick={() => setMotivoSel(null)}>Fechar</Button>
+                  </div>
+                  <div className="mt-2 max-h-[180px] overflow-y-auto rounded-lg border bg-white">
+                    <table className="w-full text-xs">
+                      <thead><tr className="text-left text-muted-foreground"><th className="px-2 py-1">Data</th><th className="pr-2">OGS</th><th className="pr-2">Equipe</th><th className="pr-2">{motivoSel === "Outro" ? "O que o engenheiro escreveu" : "Observação"}</th></tr></thead>
+                      <tbody>
+                        {regs.map(r => <tr key={r.id} className="border-t"><td className="whitespace-nowrap px-2 py-1">{fmtDate(r.data)}</td><td className="pr-2">{r.ogs_number || "-"}</td><td className="pr-2">{r.equipe || "-"}</td><td className="pr-2">{textoLivre(r) || "—"}</td></tr>)}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
             <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
               <div className="rounded-xl border bg-white p-2" data-testid="grafico-motivos">
-                <h3 className="text-xs font-bold text-muted-foreground">Dias sem produção por motivo</h3>
+                <h3 className="text-xs font-bold text-muted-foreground">Dias sem produção por motivo <span className="font-normal">· clique numa barra para entender</span></h3>
                 <div className="h-[200px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={perdas.porMotivo} layout="vertical" margin={{ left: 10, right: 10, top: 4, bottom: 4 }}>
@@ -1283,7 +1372,8 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
                       <XAxis type="number" allowDecimals={false} />
                       <YAxis type="category" dataKey="name" width={170} tick={{ fontSize: 11 }} />
                       <Tooltip formatter={(v: number) => [`${v} RDO(s)`, "Quantidade"]} />
-                      <Bar dataKey="value" fill="#ef4444" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="value" fill="#ef4444" radius={[0, 4, 4, 0]} cursor="pointer"
+                        onClick={(d: any) => setMotivoSel(prev => (prev === d?.name ? null : (d?.name ?? null)))} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -1313,7 +1403,7 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
           </div>
         )}
         <TabelaPaginada className="lg:flex-1" itens={lista} colunas={colunasAssunto(tab)} getKey={r => r.id}
-          resetKey={`${tab}|${chaveTecnica}`} focusKey={foco} vazio="Nenhum lançamento para este assunto com os filtros atuais." rotulo="registros" minWidth={860} />
+          resetKey={`${tab}|${chaveTecnica}|${tab === "usina" ? JSON.stringify(fUsina) : tab === "meteo" ? JSON.stringify(fClima) : ""}`} focusKey={foco} vazio="Nenhum lançamento para este assunto com os filtros atuais." rotulo="registros" minWidth={860} />
       </SecaoShell>
     );
   };
@@ -1575,7 +1665,14 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
         <KpiCard icon={ClipboardList} titulo="Total de RDOs" subtitulo={pronto ? <><span className="block">{fmtNum(kpis.enviados)} enviados</span><span className="block">{fmtNum(kpis.rascunhos)} rascunhos</span></> : "—"} valor={pronto ? fmtNum(kpis.total) : "—"} cor="text-slate-700" />
         <KpiCard icon={AlertTriangle} titulo="RDOs sem produção" subtitulo={pronto ? `${fmtNum(kpis.comProducao)} com produção` : "—"} valor={pronto ? fmtNum(kpis.semProducao) : "—"} cor="text-red-700" />
         <KpiCard icon={Users} titulo="Produção em toneladas" valor={pronto ? fmtNum(kpis.toneladas, 1) : "—"} cor="text-emerald-700" />
-        <KpiCard icon={Activity} titulo="Área produzida (m²)" subtitulo="fresagem + RAP + geogrelha" valor={pronto ? fmtNum(kpis.areaM2, 1) : "—"} cor="text-indigo-700" />
+        <div data-testid="kpi-area-por-servico" className="min-w-0 rounded-xl border bg-white px-2 py-1.5 lg:px-3 lg:py-2">
+          <span className="line-clamp-2 text-xs font-bold leading-tight text-muted-foreground" title="Cada serviço na sua própria produção; nada é somado entre serviços diferentes.">Produção em m² (por serviço)</span>
+          <div className="mt-0.5 space-y-0.5 text-xs text-indigo-700">
+            {[["Fresagem", kpis.fresagemM2], ["RAP espumado", kpis.rapM2], ["Geogrelha", kpis.geogrelhaM2]].map(([nome, v]) => (
+              <div key={nome as string} className="flex items-baseline justify-between gap-2"><span className="text-muted-foreground">{nome}</span><strong className="text-sm">{pronto ? fmtNum(v as number, 1) : "—"}</strong></div>
+            ))}
+          </div>
+        </div>
       </div>}
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3 lg:flex-row">

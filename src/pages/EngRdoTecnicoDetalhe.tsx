@@ -56,6 +56,8 @@ interface Rdo {
   controle_tecnologico_presente: boolean | null;
   sinalizacao_vertical_nota: number | null;
   controle_tecnologico_nota: number | null;
+  sinalizacao_ausente_motivo?: string | null;
+  controle_tecnologico_ausente_motivo?: string | null;
   massa_fria_sacos: number | null;
   qtd_caminhoes_fresa: number | null;
   perc_conclusao_via: number | null;
@@ -204,8 +206,10 @@ export default function EngRdoTecnicoDetalhe() {
         ["Horário previsto / liberada", rdo.autorizacao_horario_previsto || rdo.autorizacao_horario_real ? `${(rdo.autorizacao_horario_previsto || "—").slice(0, 5)} / ${(rdo.autorizacao_horario_real || "—").slice(0, 5)}` : "—"],
         ["Justificativa da liberação fora do horário", rdo.autorizacao_atraso_detalhe || "—"],
         ["Sinalização presente no horário", yn(rdo.sinalizacao_presente)],
+        ["Explicação (sinalização ausente)", rdo.sinalizacao_ausente_motivo || "—"],
         ["Nota da equipe de sinalização (1-5)", rdo.sinalizacao_nota != null ? String(rdo.sinalizacao_nota) : "—"],
         ["Controle tecnológico presente no horário", yn(rdo.controle_tecnologico_presente)],
+        ["Explicação (controle tecnológico ausente)", rdo.controle_tecnologico_ausente_motivo || "—"],
         ["Nota do controle tecnológico (1-5)", rdo.controle_tecnologico_nota != null ? String(rdo.controle_tecnologico_nota) : "—"],
         ["Nota da sinalização vertical (1-5)", rdo.sinalizacao_vertical_nota != null ? String(rdo.sinalizacao_vertical_nota) : "—"],
         ["Equipamentos não conformes", rdo.equipamentos_nao_conformes || "—"],
@@ -410,8 +414,10 @@ export default function EngRdoTecnicoDetalhe() {
             <Row label="Horário previsto / liberada" value={rdo.autorizacao_horario_previsto || rdo.autorizacao_horario_real ? `${(rdo.autorizacao_horario_previsto || "—").slice(0, 5)} / ${(rdo.autorizacao_horario_real || "—").slice(0, 5)}` : null} />
             <Row label="Justificativa da liberação fora do horário" value={rdo.autorizacao_atraso_detalhe} />
             <Row label="Sinalização presente no horário" value={yn(rdo.sinalizacao_presente) === "—" ? null : yn(rdo.sinalizacao_presente)} />
+            <Row label="Explicação (sinalização ausente)" value={rdo.sinalizacao_ausente_motivo} />
             <Row label="Nota da equipe de sinalização" value={rdo.sinalizacao_nota != null ? `${rdo.sinalizacao_nota} de 5` : null} />
             <Row label="Controle tecnológico presente no horário" value={yn(rdo.controle_tecnologico_presente) === "—" ? null : yn(rdo.controle_tecnologico_presente)} />
+            <Row label="Explicação (controle tecnológico ausente)" value={rdo.controle_tecnologico_ausente_motivo} />
             <Row label="Nota do controle tecnológico" value={rdo.controle_tecnologico_nota != null ? `${rdo.controle_tecnologico_nota} de 5` : null} />
             <Row label="Nota da sinalização vertical" value={rdo.sinalizacao_vertical_nota != null ? `${rdo.sinalizacao_vertical_nota} de 5` : null} />
 

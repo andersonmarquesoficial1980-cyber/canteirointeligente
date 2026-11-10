@@ -6149,6 +6149,8 @@ export type Database = {
           sinalizacao_presente: boolean | null
           sinalizacao_nota: number | null
           controle_tecnologico_presente: boolean | null
+          sinalizacao_ausente_motivo: string | null
+          controle_tecnologico_ausente_motivo: string | null
           sinalizacao_vertical_nota: number | null
           rap_espumado_m2: number | null
           rdo_apontador_id: string | null
@@ -6221,6 +6223,8 @@ export type Database = {
           sinalizacao_presente?: boolean | null
           sinalizacao_nota?: number | null
           controle_tecnologico_presente?: boolean | null
+          sinalizacao_ausente_motivo?: string | null
+          controle_tecnologico_ausente_motivo?: string | null
           sinalizacao_vertical_nota?: number | null
           rap_espumado_m2?: number | null
           rdo_apontador_id?: string | null
@@ -6293,6 +6297,8 @@ export type Database = {
           sinalizacao_presente?: boolean | null
           sinalizacao_nota?: number | null
           controle_tecnologico_presente?: boolean | null
+          sinalizacao_ausente_motivo?: string | null
+          controle_tecnologico_ausente_motivo?: string | null
           sinalizacao_vertical_nota?: number | null
           rap_espumado_m2?: number | null
           rdo_apontador_id?: string | null
