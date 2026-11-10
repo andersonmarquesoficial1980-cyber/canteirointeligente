@@ -1082,6 +1082,12 @@ export default function ProgramadorHome() {
           >
             <CalendarDays className="w-3.5 h-3.5" /> Obras
           </button>
+          <button
+            onClick={() => navigate(`/programador/pendencias${origemQuery}`)}
+            className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors"
+          >
+            <Users className="w-3.5 h-3.5" /> Pendências
+          </button>
         </div>
       </header>
 
