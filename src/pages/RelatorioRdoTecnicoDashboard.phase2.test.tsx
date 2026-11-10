@@ -180,7 +180,7 @@ describe("Dashboard Técnico — clareza dos KPIs do topo", () => {
   it("usa os quatro títulos claros na faixa de KPIs, sem pílulas de variação", async () => {
     await mount();
     const faixa = within(screen.getByTestId("faixa-kpis"));
-    for (const t of ["Total de RDOs", "RDOs sem produção", "Produção em toneladas", "Área produzida (m²)"]) {
+    for (const t of ["Total de RDOs", "RDOs sem produção", "Produção em toneladas", "Produção em m² (por serviço)"]) {
       expect(faixa.getByText(t)).toBeInTheDocument();
     }
     for (const antigo of ["RDOs (inclui rascunhos)", "Com produção", "Sem produção", "Não conformes", "Produção (t)", "Produção (m²)"]) {
@@ -507,7 +507,7 @@ describe("Dashboard Técnico — visão geral compacta e navegação móvel", ()
     expect(within(chips).getByRole("button", { name: /Validações pendentes.*: 4/ })).toBeInTheDocument();
     expect(within(chips).getByRole("button", { name: /Usina não atendeu: 1/ })).toBeInTheDocument();
     const comparison = section("Comparativo com período anterior");
-    expect(within(comparison).getAllByRole("row")).toHaveLength(13);
+    expect(within(comparison).getAllByRole("row")).toHaveLength(15);
     fireEvent.click(within(chips).getByRole("button", { name: /Alertas operacionais/ }));
     expect(screen.getByRole("heading", { name: "Alertas operacionais dos RDOs Técnicos" })).toBeInTheDocument();
   });
@@ -651,7 +651,7 @@ describe("Dashboard Técnico — Atividades qualitativas", () => {
     expect(box).toHaveTextContent("não representam t, m² ou m³");
     expect(counts()).toEqual(["3", "2"]);
     irPara("Visão geral");
-    expect(within(section("Comparativo com período anterior")).getByText("Produção (m²)").parentElement).toHaveTextContent("107");
+    expect(within(section("Comparativo com período anterior")).getByText("Fresagem (m²)").parentElement).toHaveTextContent("107");
     expect(within(section("Comparativo com período anterior")).getByText("Produção (t)").parentElement).toHaveTextContent("5");
   });
   it("respeita os filtros gerais de status e mantém zeros sem linhas de produção", async () => {

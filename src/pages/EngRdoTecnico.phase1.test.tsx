@@ -186,13 +186,17 @@ describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
     fireEvent.click(question("Equipe de sinalização presente na obra no horário programado?").getByRole("button", { name: "Não" }));
     expect(screen.queryByText(NOTA_SINALIZACAO)).not.toBeInTheDocument();
     await act(async () => { submit(mode); });
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Explique por que a equipe de sinalização não estava presente no horário" }));
+    fireEvent.change(screen.getByPlaceholderText(/equipe não compareceu/), { target: { value: "Equipe atrasou 2h" } });
+    await act(async () => { submit(mode); });
     expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ autorizacao_no_horario: false, autorizacao_atraso_detalhe: "Liberação às 9h",
-      sinalizacao_presente: false, sinalizacao_nota: null, controle_tecnologico_presente: true, sinalizacao_vertical_nota: 5 }));
+      sinalizacao_ausente_motivo: "Equipe atrasou 2h", sinalizacao_presente: false, sinalizacao_nota: null, controle_tecnologico_presente: true, sinalizacao_vertical_nota: 5 }));
   });
 
   it("exige as respostas de apoio no envio, mas não no rascunho nem em dia sem produção", async () => {
     await mount(mode);
     fireEvent.click(question("Equipe de controle tecnológico esteve presente e no horário na obra hoje?").getByRole("button", { name: "Não" }));
+    fireEvent.change(screen.getByPlaceholderText(/laboratório não enviou/), { target: { value: "Laboratório não enviou equipe" } });
     fireEvent.click(question(NOTA_VERTICAL).getByRole("button", { name: "5 estrelas" })); // desmarca
     await act(async () => { submit(mode); });
     expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Avalie a sinalização vertical (1 a 5)" }));

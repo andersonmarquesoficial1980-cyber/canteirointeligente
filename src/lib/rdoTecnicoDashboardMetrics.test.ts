@@ -21,7 +21,12 @@ describe("Métricas extras do Dashboard", () => {
   it("soma campo", () => expect(somaCampo([p({ a: 2 }), p({ a: null }), p({ a: 3 })], "a")).toBe(5));
   it("conta seção da obra só em dia produtivo", () => {
     expect(secaoDaObra([p({ tipo_secao: "Funcional, Estrutural" }), p({ tipo_secao: "Funcional" }), s("Chuva", { tipo_secao: "Estrutural" }), p({})]))
-      .toEqual({ comSecao: 2, itens: [{ name: "Funcional", value: 2 }, { name: "Intermediário", value: 0 }, { name: "Estrutural", value: 1 }] });
+      .toMatchObject({ comSecao: 2, itens: [{ name: "Funcional", value: 2 }, { name: "Intermediário", value: 0 }, { name: "Estrutural", value: 1 }] });
+  });
+  it("seção da obra ignora OGS que não são PMSP (dados antigos)", () => {
+    const r = secaoDaObra([p({ ogs_number: "2539", tipo_secao: "Funcional" }), p({ ogs_number: "2547", tipo_secao: "Estrutural" })], new Set(["2547"]));
+    expect(r).toMatchObject({ comSecao: 1, ogs: ["2547"] });
+    expect(secaoDaObra([p({ ogs_number: "2539", tipo_secao: "Funcional" })], new Set()).comSecao).toBe(0);
   });
   it("resume retrabalho %, caminhões e última conclusão por OGS", () => {
     const r = resumoPorOgs([p({ ogs_number: "7", retrabalho: true, retrabalho_oficio: "ofício 1", qtd_caminhoes_basculante: 4, perc_conclusao_via: 30, data: "2026-10-01" }),

@@ -282,6 +282,8 @@ export default function EngRdoTecnico() {
       autorizacao_horario_previsto: !semProducao && form.autorizacao_no_horario === "nao" ? form.autorizacao_horario_previsto || null : null,
       autorizacao_horario_real: !semProducao && form.autorizacao_no_horario === "nao" ? form.autorizacao_horario_real || null : null,
       sinalizacao_presente: semProducao ? null : simNaoToBool(form.sinalizacao_presente),
+      sinalizacao_ausente_motivo: !semProducao && form.sinalizacao_presente === "nao" ? form.sinalizacao_ausente_motivo.trim() || null : null,
+      controle_tecnologico_ausente_motivo: !semProducao && form.controle_tecnologico_presente === "nao" ? form.controle_tecnologico_ausente_motivo.trim() || null : null,
       sinalizacao_nota: !semProducao && form.sinalizacao_presente === "sim" ? form.sinalizacao_nota || null : null,
       controle_tecnologico_presente: semProducao ? null : simNaoToBool(form.controle_tecnologico_presente),
       sinalizacao_vertical_nota: semProducao ? null : form.sinalizacao_vertical_nota || null,

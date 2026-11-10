@@ -9,6 +9,20 @@ export const MOTIVOS_NAO_PERDA = ["Folga / Feriado", "Sem Atividade"];
 export const MOTIVOS_SEM_PRODUCAO = ["Chuva", "Usina Não Atendeu", "Indisponibilidade de Equipamento", "Problema de Transporte",
   "Falha de Combustível", "Falta de Autorização", "Outro", ...MOTIVOS_NAO_PERDA];
 
+/** Explicação mostrada ao clicar numa barra do gráfico de dias sem produção. */
+export const MOTIVO_EXPLICACAO: Record<string, string> = {
+  "Chuva": "Chuva impediu a execução do serviço no dia. Causa externa (clima): conta como dia perdido.",
+  "Usina Não Atendeu": "A usina não forneceu a massa programada (não entregou ou entregou fora das condições). Causa externa: conta como dia perdido.",
+  "Indisponibilidade de Equipamento": "Equipamento necessário parado, quebrado ou sem operador. Conta como dia perdido; confira a Manutenção.",
+  "Problema de Transporte": "Falta ou atraso de caminhões/transporte de material. Conta como dia perdido.",
+  "Falha de Combustível": "Falta de combustível para equipamentos ou comboio. Conta como dia perdido.",
+  "Falta de Autorização": "Cliente/fiscalização não liberou a pista ou a frente de serviço. Causa externa: conta como dia perdido.",
+  "Folga / Feriado": "Dia sem trabalho programado por folga da equipe ou feriado. NÃO é perda de produção.",
+  "Sem Atividade": "Dia sem serviço programado para a equipe nesta obra (sem frente liberada ou aguardando programação). NÃO conta como perda por causa externa.",
+  "Outro": "Motivo que não está na lista padrão. O engenheiro descreveu o que aconteceu — veja os textos abaixo. Conta como dia perdido.",
+  "Sem motivo": "RDO sem produção em que o engenheiro não informou o motivo. Vale cobrar o preenchimento.",
+};
+
 export const motivoLabel = (r: DashRow) => (r.motivo_sem_producao === "Outro" ? "Outro" : r.motivo_sem_producao || "Sem motivo");
 
 export function perdasPorMotivo(rows: DashRow[]) {
@@ -43,14 +57,17 @@ export function producaoPorServico(rows: DashRow[]) {
 export const somaCampo = (rows: DashRow[], field: string) =>
   rows.reduce((a, r) => a + (typeof r[field] === "number" ? (r[field] as number) : 0), 0);
 
-export function secaoDaObra(rows: DashRow[]) {
+/** Seção da obra só existe em contratos PMSP: ogsPmsp (quando informado) descarta RDOs antigos de outros clientes. */
+export function secaoDaObra(rows: DashRow[], ogsPmsp?: ReadonlySet<string>) {
   const cont: Record<string, number> = { Funcional: 0, "Intermediário": 0, Estrutural: 0 };
   let comSecao = 0;
-  rows.filter(r => r.houve_producao && r.tipo_secao).forEach(r => {
+  const ogs = new Set<string>();
+  rows.filter(r => r.houve_producao && r.tipo_secao && (!ogsPmsp || ogsPmsp.has(String(r.ogs_number)))).forEach(r => {
     comSecao++;
+    if (r.ogs_number) ogs.add(String(r.ogs_number));
     String(r.tipo_secao).split(",").map(s => s.trim()).filter(s => s in cont).forEach(s => { cont[s]++; });
   });
-  return { comSecao, itens: Object.entries(cont).map(([name, value]) => ({ name, value })) };
+  return { comSecao, ogs: [...ogs].sort(), itens: Object.entries(cont).map(([name, value]) => ({ name, value })) };
 }
 
 /** Resumo por OGS: retrabalho (nº e %), caminhões e última conclusão da via informada. */
@@ -79,6 +96,15 @@ export function climaSplit(rows: DashRow[]) {
     semIntensidadeComProducao: chuva.filter(r => r.houve_producao && !r.intensidade_chuva).length,
   };
 }
+
+/** Situação da usina em um RDO (para filtros da aba Usina). */
+export const situacaoUsina = (r: DashRow): "Atendeu" | "Não atendeu" | "Sem avaliação" =>
+  r.usina_atendeu === false || (!r.houve_producao && r.motivo_sem_producao === "Usina Não Atendeu") ? "Não atendeu"
+    : r.usina_atendeu === true ? "Atendeu" : "Sem avaliação";
+
+/** Situação da chuva em um RDO (para filtros da aba Clima). */
+export const situacaoClima = (r: DashRow): "Choveu e houve produção" | "Choveu e parou a produção" =>
+  r.houve_producao ? "Choveu e houve produção" : "Choveu e parou a produção";
 
 /** Equipes do filtro: oculta as desmarcadas no RDO Técnico, preservando as que têm histórico. */
 export function equipesVisiveisFiltro(cadastro: { nome: string; exibir?: boolean | null }[], historico: string[], atual = ""): string[] {
