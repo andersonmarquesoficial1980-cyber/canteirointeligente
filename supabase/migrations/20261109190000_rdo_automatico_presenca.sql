@@ -38,7 +38,7 @@ BEGIN
     FROM employees e LEFT JOIN funcoes f ON f.id = e.funcao_id
     WHERE e.company_id = v_ogs.company_id
       AND e.status = 'ativo'
-      AND (e.data_admissao IS NULL OR e.data_admissao <= v_data)
+      AND (e.data_admissao IS NULL OR e.data_admissao !~ '^\d{4}-\d{2}-\d{2}' OR left(e.data_admissao,10) <= v_data::text)
       AND (e.data_demissao IS NULL OR e.data_demissao >= v_data)
       AND (wf_auto_rdo_norm(e.equipe) LIKE '%' || v_ogs.chave || '%'
            OR wf_auto_rdo_norm(e.centro_custo::text) LIKE '%' || v_ogs.chave || '%'
