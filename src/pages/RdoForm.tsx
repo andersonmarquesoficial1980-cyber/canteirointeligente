@@ -504,8 +504,9 @@ export default function RdoForm() {
             matricula: e.matricula || "",
             nome: e.nome || "",
             funcao: e.funcao || "",
-            entrada: e.entrada || "",
-            saida: e.saida || "",
+            // Folga/Cancelou: mantém o efetivo, mas NÃO herda horário (dia sem trabalho)
+            entrada: "",
+            saida: "",
             status: statusEfetivo,
             employee_id: e.employee_id || null, // preservar vínculo do dia anterior
           }))
@@ -1175,8 +1176,9 @@ export default function RdoForm() {
               nome: e.nome || null,
               matricula: e.matricula || null,
               quantidade: 1,
-              entrada: e.entrada || globalEntrada || null,
-              saida: e.saida || globalSaida || null,
+              // Folga/Cancelou nunca grava horário (RH compara com o Ponto Mais)
+              entrada: statusSemOperacao ? null : (e.entrada || globalEntrada || null),
+              saida: statusSemOperacao ? null : (e.saida || globalSaida || null),
               employee_id: e.employee_id && !(e.nome || "").includes("|||") ? e.employee_id : null,
             })),
       (row) => [
@@ -1257,6 +1259,7 @@ export default function RdoForm() {
     efetivo,
     globalEntrada,
     globalSaida,
+    statusSemOperacao,
     terceirizados,
     empresasTerceiras,
     funcionariosTerceiros,
@@ -1901,9 +1904,9 @@ export default function RdoForm() {
           producaoCauq,
           sinalizacoesHorizontais,
           informacoesDmt,
-          efetivo,
-          globalEntrada,
-          globalSaida,
+          efetivo: statusSemOperacao ? efetivo.map(e => ({ ...e, entrada: "", saida: "" })) : efetivo,
+          globalEntrada: statusSemOperacao ? "" : globalEntrada,
+          globalSaida: statusSemOperacao ? "" : globalSaida,
         },
         tipoRdo || "RDO",
       );

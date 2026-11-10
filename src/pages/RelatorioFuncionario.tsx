@@ -530,8 +530,9 @@ export default function RelatorioFuncionario() {
 
     return result.map(r => {
       const alertas: string[] = [];
-      const ent = hhmm(r.entrada), sai = hhmm(r.saida);
       const folga = r.clima === "Folga" || r.clima === "Cancelou";
+      // Folga/Cancelou: sem horário (legado copiado do dia anterior não deve aparecer)
+      const ent = folga ? "" : hhmm(r.entrada), sai = folga ? "" : hhmm(r.saida);
       if (!folga) {
         if (!ent || !sai) alertas.push("Sem horário");
         else if (sai < ent && r.turno !== "noturno") alertas.push("Saída antes da entrada");
@@ -542,8 +543,8 @@ export default function RelatorioFuncionario() {
       const eqCad = equipeCadastro[norm(r.nome)];
       if (eqCad && equipeDia && norm(eqCad) !== norm(equipeDia)) alertas.push(`Cadastro em outra equipe: ${eqCad}`);
       const hs = horariosPorRdo[r.rdo_id];
-      const origem = r.tipo_rdo === "AUTOMATICO" ? "Automático (presumido)" : !ent && !sai ? "Não informado" : hs && hs.size > 1 ? "Individual" : "Padrão do RDO";
-      return { ...r, alertas, origem_horario: origem, equipe: equipeDia };
+      const origem = folga ? "Sem trabalho (" + r.clima + ")" : r.tipo_rdo === "AUTOMATICO" ? "Automático (presumido)" : !ent && !sai ? "Não informado" : hs && hs.size > 1 ? "Individual" : "Padrão do RDO";
+      return { ...r, entrada: folga ? null : r.entrada, saida: folga ? null : r.saida, alertas, origem_horario: origem, equipe: equipeDia };
     });
   };
 
