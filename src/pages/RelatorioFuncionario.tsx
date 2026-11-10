@@ -327,6 +327,31 @@ export default function RelatorioFuncionario() {
         });
 
         result = await finalizar(result, profile.company_id!);
+
+        // Alocações manuais do Programador (quem não está em RDO no dia)
+        try {
+          let ids: string[] = alvo ? [alvo.id] : cadastro.filter(e => norm(e.name).includes(nomeAlvo)).map(e => e.id).slice(0, 50);
+          if (ids.length > 0) {
+            let aq = (supabase as any).from("alocacao_diaria")
+              .select("data, tipo, ogs_number, entrada, saida, observacao, id, employees(name, matricula, equipe, funcoes(nome))")
+              .eq("company_id", profile.company_id!).in("employee_id", ids);
+            if (dataIni) aq = aq.gte("data", dataIni);
+            if (dataFim) aq = aq.lte("data", dataFim);
+            const { data: aloc } = await aq;
+            const TIPOS: Record<string, string> = { obra: "Alocado em obra", base: "Base Osasco", disponivel: "Disponível", falta: "Falta", folga: "Folga", atestado: "Atestado", ferias: "Férias" };
+            let extra: ResultRow[] = (aloc || []).map((a: any) => ({
+              nome: a.employees?.name || "", matricula: a.employees?.matricula || null, data: a.data,
+              obra_nome: a.ogs_number || "", encarregado: null, funcao: a.employees?.funcoes?.nome || null,
+              entrada: a.entrada, saida: a.saida, turno: null, clima: TIPOS[a.tipo] || a.tipo,
+              contratante: null, local: null, equipe: a.employees?.equipe || null, responsavel: null,
+              preenchido_por: "Programador de Obras", tipo_rdo: "ALOCACAO", rdo_id: `aloc-${a.id}`,
+              origem_horario: "Alocação manual", alertas: a.observacao ? [`Obs: ${a.observacao}`] : [],
+            }));
+            extra = await enrichWithOgs(extra, profile.company_id!);
+            result = [...result, ...extra];
+          }
+        } catch (e) { console.error("Alocações manuais:", e); }
+
         result.sort((a, b) => b.data.localeCompare(a.data) || a.nome.localeCompare(b.nome) || (a.entrada || "").localeCompare(b.entrada || ""));
         if (result.length === 0) setMessageNoData(`Nenhum RDO encontrado para "${termo}" no período. Confira a grafia ou tente só o sobrenome/matrícula.`);
         setRows(result);
@@ -770,7 +795,7 @@ export default function RelatorioFuncionario() {
     <td className="px-2 py-1.5 font-mono font-semibold whitespace-nowrap">{hhmm(r.entrada) || "-"}</td>
     <td className="px-2 py-1.5 font-mono font-semibold whitespace-nowrap">{hhmm(r.saida) || "-"}</td>
     <td className="px-2 py-1.5 whitespace-nowrap">
-      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${r.origem_horario === "Individual" ? "bg-blue-100 text-blue-700" : r.origem_horario === "Automático (presumido)" ? "bg-purple-100 text-purple-700" : r.origem_horario === "Não informado" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>{r.origem_horario}</span>
+      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${r.origem_horario === "Individual" ? "bg-blue-100 text-blue-700" : r.origem_horario === "Automático (presumido)" ? "bg-purple-100 text-purple-700" : r.origem_horario === "Alocação manual" ? "bg-teal-100 text-teal-700" : r.origem_horario === "Não informado" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>{r.origem_horario}</span>
     </td>
     <td className="px-2 py-1.5 min-w-[140px]">
       {r.alertas.length === 0 ? <span className="text-muted-foreground">-</span> : r.alertas.map(a => (
