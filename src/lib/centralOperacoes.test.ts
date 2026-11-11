@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { areaExcluida, diffDays, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas, statusOperacaoDe } from "./centralOperacoes";
+import { tiposSemDiario, areaExcluida, diffDays, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas, statusOperacaoDe } from "./centralOperacoes";
 
 const HOJE = "2026-11-11";
 const eq = (frota: string, status = "ativo") => ({ id: frota, frota, status });
@@ -61,7 +61,7 @@ describe("centralOperacoes — pessoas", () => {
     );
     expect(rows.find((r) => r.id === "1")!.estado).toBe("ok_hoje");
     expect(rows.find((r) => r.id === "2")).toMatchObject({ estado: "atrasado", diasSemRdo: 3, ultimaObra: "B" });
-    expect(rows.find((r) => r.id === "3")!.estado).toBe("nunca");
+    expect(rows.find((r) => r.id === "3")!.estado).toBe("sem_historico");
   });
   it("exclui terceiros, demitidos e áreas administrativas (igual ao Programador)", () => {
     const rows = situacaoPessoas(
@@ -94,5 +94,25 @@ describe("centralOperacoes — obras e resumo", () => {
     const e = situacaoEquipamentos([eq("A"), eq("B"), eq("C", "em_manutencao")], [dia("A", HOJE)], [], HOJE, 1);
     const r = resumoCentral(e, [], []);
     expect(r).toMatchObject({ equipMonitorados: 2, equipComDiarioHoje: 1, equipNunca: 1, emManutencao: 1 });
+  });
+});
+
+describe("centralOperacoes — ruído real de produção", () => {
+  it("tipo com 3+ unidades e nenhum diário (banheiro) fica isento; tipo com diário continua monitorado", () => {
+    const e = [1, 2, 3].map((n) => ({ id: `B${n}`, frota: `BAN-${n}`, tipo: "Banheiro Químico", status: "ativo" }))
+      .concat([1, 2, 3].map((n) => ({ id: `R${n}`, frota: `RC-${n}`, tipo: "Rolo", status: "ativo" })));
+    const d = [dia("RC-1", HOJE)];
+    expect([...tiposSemDiario(e, d)]).toEqual(["BANHEIRO QUIMICO"]);
+    const rows = situacaoEquipamentos(e, d, [], HOJE);
+    expect(rows.filter((r) => r.tipo === "Banheiro Químico").every((r) => r.estado === "isento")).toBe(true);
+    expect(rows.find((r) => r.frota === "RC-2")!.estado).toBe("nunca");
+  });
+  it("tipo com poucas unidades sem diário NÃO é isento (pode ser esquecimento)", () => {
+    const e = [{ id: "E1", frota: "ESC-1", tipo: "Escavadeira", status: "ativo" }];
+    expect(situacaoEquipamentos(e, [], [], HOJE)[0].estado).toBe("nunca");
+  });
+  it("obra SEM ATIVIDADE não entra no painel", () => {
+    const obras = situacaoObras([], [{ data: HOJE, obra_nome: "Sem Atividade", ogs_id: null }, { data: HOJE, obra_nome: "2509", ogs_id: null }], [], new Map(), HOJE);
+    expect(obras.map((o) => o.ogs)).toEqual(["2509"]);
   });
 });

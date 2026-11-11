@@ -38,7 +38,7 @@ export interface TransporteLite {
 }
 
 export type StatusOperacao = "trabalhando" | "disposicao" | "manutencao" | "transporte" | "folga" | "patio" | "sem_info";
-export type EstadoLancamento = "ok_hoje" | "atrasado" | "nunca" | "isento";
+export type EstadoLancamento = "ok_hoje" | "atrasado" | "nunca" | "isento" | "sem_historico";
 
 export interface EquipamentoSituacao {
   id: string; frota: string; nome: string; tipo: string;
@@ -73,11 +73,28 @@ export function statusOperacaoDe(workStatus: string | null | undefined): StatusO
   return "disposicao";
 }
 
+/**
+ * Tipos que NÃO lançam diário por natureza (banheiro, torre, compressor...): tipo com 3+ unidades
+ * ativas e nenhuma com diário enviado na janela. Detectado pelos dados, sem lista fixa.
+ */
+export function tiposSemDiario(equips: EquipamentoBase[], diarios: DiarioLite[], minUnidades = 3): Set<string> {
+  const comDiario = new Set(diarios.filter((d) => norm(d.status) === "ENVIADO" && d.is_auto !== true).map((d) => fleetKey(d.equipment_fleet)));
+  const tot = new Map<string, number>(); const com = new Map<string, number>();
+  for (const e of equips) {
+    if (statusCadastro(e.status) !== "OPERACIONAL") continue;
+    const t = norm(e.tipo); if (!t) continue;
+    tot.set(t, (tot.get(t) || 0) + 1);
+    if (comDiario.has(fleetKey(e.frota))) com.set(t, (com.get(t) || 0) + 1);
+  }
+  return new Set([...tot].filter(([t, n]) => n >= minUnidades && !com.get(t)).map(([t]) => t));
+}
+
 const lancado = (d: DiarioLite) => norm(d.status) === "ENVIADO" && d.is_auto !== true && !!d.date;
 
 export function situacaoEquipamentos(
   equips: EquipamentoBase[], diarios: DiarioLite[], transportes: TransporteLite[], hoje: string, limiteDias = 2,
 ): EquipamentoSituacao[] {
+  const semDiarioPorNatureza = tiposSemDiario(equips, diarios);
   const diariosPorFrota = new Map<string, DiarioLite[]>();
   for (const d of diarios) {
     if (!d.date || norm(d.status) === "RASCUNHO") continue;
@@ -95,7 +112,7 @@ export function situacaoEquipamentos(
   return equips.map((e) => {
     const k = fleetKey(e.frota);
     const sc = statusCadastro(e.status);
-    const monitorado = sc === "OPERACIONAL";
+    const monitorado = sc === "OPERACIONAL" && !semDiarioPorNatureza.has(norm(e.tipo));
     const todos = (diariosPorFrota.get(k) || []).sort((a, b) => (b.date! + (b.period || "")).localeCompare(a.date! + (a.period || "")));
     const manual = todos.find(lancado) || null;
     const ultimoAuto = todos.find((d) => d.is_auto === true) || null;
@@ -186,7 +203,8 @@ export function situacaoPessoas(
     const ult = !a ? b : !b ? a : a.data >= b.data ? a : b;
     const semRdoHoje = !(hojeIds.has(e.id) || hojeNomes.has(nk));
     const dias = ult ? Math.max(0, diffDays(ult.data, hoje)) : null;
-    const estado: EstadoLancamento = !semRdoHoje ? "ok_hoje" : ult === undefined ? "nunca" : (dias ?? 0) >= limiteDias ? "atrasado" : "ok_hoje";
+    // Quem nunca aparece nos RDOs da janela provavelmente não é de campo: não é alerta ("sem_historico").
+    const estado: EstadoLancamento = !semRdoHoje ? "ok_hoje" : ult === undefined ? "sem_historico" : (dias ?? 0) >= limiteDias ? "atrasado" : "ok_hoje";
     out.push({
       id: e.id, nome: e.name, matricula: e.matricula || "", funcao: e.role || "", equipe: e.equipe || "",
       ultimaData: ult?.data || null, diasSemRdo: dias, ultimaObra: ult?.obra || "", ultimaOgs: ult?.ogs || "",
@@ -220,7 +238,7 @@ export function situacaoObras(
     if (!r.data || norm(r.status_validacao) === "RASCUNHO") continue;
     const ref = r.ogs_id ? byId.get(r.ogs_id) : undefined;
     const key = ogsKey(ref?.ogs_number) || ogsKey(r.obra_nome);
-    if (!key) continue;
+    if (!key || /SEM ATIVIDADE/.test(key)) continue;
     const o = get(key, r.obra_nome, ref?.client_name || "");
     if (r.data === hoje) o.rdoHoje += 1;
     if (!o.ultimoRdo || r.data > o.ultimoRdo) o.ultimoRdo = r.data;
@@ -245,14 +263,14 @@ export function situacaoObras(
 export interface ResumoCentral {
   equipMonitorados: number; equipComDiarioHoje: number; equipAtrasados: number; equipNunca: number;
   porStatus: Record<StatusOperacao, number>; emManutencao: number;
-  pessoasMonitoradas: number; pessoasComRdoHoje: number; pessoasAtrasadas: number;
+  pessoasMonitoradas: number; pessoasComRdoHoje: number; pessoasAtrasadas: number; pessoasSemHistorico: number;
   obrasAtivas: number; obrasComRdoHoje: number;
 }
 
 export function resumoCentral(eq: EquipamentoSituacao[], pe: PessoaSituacao[], ob: ObraSituacao[]): ResumoCentral {
   const mon = eq.filter((e) => e.monitorado);
   const porStatus: Record<StatusOperacao, number> = { trabalhando: 0, disposicao: 0, manutencao: 0, transporte: 0, folga: 0, patio: 0, sem_info: 0 };
-  eq.filter((e) => e.statusCadastro !== "DEVOLVIDO").forEach((e) => { porStatus[e.statusOperacao] += 1; });
+  eq.filter((e) => e.monitorado || e.statusCadastro === "MANUTENÇÃO" || e.statusCadastro === "INOPERANTE").forEach((e) => { porStatus[e.statusOperacao] += 1; });
   return {
     equipMonitorados: mon.length,
     equipComDiarioHoje: mon.filter((e) => !e.semDiarioHoje).length,
@@ -262,7 +280,8 @@ export function resumoCentral(eq: EquipamentoSituacao[], pe: PessoaSituacao[], o
     emManutencao: eq.filter((e) => e.statusCadastro === "MANUTENÇÃO" || e.statusCadastro === "INOPERANTE").length,
     pessoasMonitoradas: pe.length,
     pessoasComRdoHoje: pe.filter((p) => !p.semRdoHoje).length,
-    pessoasAtrasadas: pe.filter((p) => p.estado === "atrasado" || p.estado === "nunca").length,
+    pessoasAtrasadas: pe.filter((p) => p.estado === "atrasado").length,
+    pessoasSemHistorico: pe.filter((p) => p.estado === "sem_historico").length,
     obrasAtivas: ob.length,
     obrasComRdoHoje: ob.filter((o) => o.estado === "rdo_hoje").length,
   };

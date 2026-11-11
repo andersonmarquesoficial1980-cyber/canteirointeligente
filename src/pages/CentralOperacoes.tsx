@@ -92,7 +92,8 @@ export default function CentralOperacoes() {
   const [atualizado, setAtualizado] = useState("");
   const [hoje, setHoje] = useState(toSaoPauloISODate());
   const [aba, setAba] = useState<TabId>("hoje");
-  const [limite, setLimite] = useState(2);
+  const [limiteEq, setLimiteEq] = useState(2);
+  const [limitePe, setLimitePe] = useState(4);
   const [busca, setBusca] = useState("");
   const [soAlertas, setSoAlertas] = useState(true);
   const [incluirAdm, setIncluirAdm] = useState(false);
@@ -159,8 +160,8 @@ export default function CentralOperacoes() {
     else { setTv(false); if (document.fullscreenElement) document.exitFullscreen?.(); }
   };
 
-  const equipamentos = useMemo(() => dados ? situacaoEquipamentos(dados.equips, dados.diarios, dados.transportes, hoje, limite) : [], [dados, hoje, limite]);
-  const pessoas = useMemo(() => dados ? situacaoPessoas(dados.pessoas, dados.presencas, hoje, limite, incluirAdm) : [], [dados, hoje, limite, incluirAdm]);
+  const equipamentos = useMemo(() => dados ? situacaoEquipamentos(dados.equips, dados.diarios, dados.transportes, hoje, limiteEq) : [], [dados, hoje, limiteEq]);
+  const pessoas = useMemo(() => dados ? situacaoPessoas(dados.pessoas, dados.presencas, hoje, limitePe, incluirAdm) : [], [dados, hoje, limitePe, incluirAdm]);
   const pessoasPorOgsHoje = useMemo(() => {
     const m = new Map<string, Set<string>>();
     for (const p of dados?.presencas || []) if (p.data === hoje && p.ogs) (m.get(p.ogs) || m.set(p.ogs, new Set()).get(p.ogs)!).add(p.employee_id || norm(p.nome));
@@ -176,7 +177,7 @@ export default function CentralOperacoes() {
     .filter((e) => !q || norm([e.frota, e.nome, e.tipo, e.ogs, e.local, e.operador].join(" ")).includes(q))
     .sort((a, b) => (b.diasSemDiario ?? 9999) - (a.diasSemDiario ?? 9999) || a.frota.localeCompare(b.frota));
   const peVis = pessoas
-    .filter((p) => !soAlertas || p.estado === "atrasado" || p.estado === "nunca")
+    .filter((p) => !soAlertas || p.estado === "atrasado")
     .filter((p) => !q || norm([p.nome, p.matricula, p.funcao, p.equipe, p.ultimaObra].join(" ")).includes(q))
     .sort((a, b) => (b.diasSemRdo ?? 9999) - (a.diasSemRdo ?? 9999) || a.nome.localeCompare(b.nome));
 
@@ -195,11 +196,11 @@ export default function CentralOperacoes() {
     : e.semDiarioHoje ? <Pill cor="#f59e0b">Sem diário hoje</Pill> : <Pill cor="#10b981">Diário em dia</Pill>;
   const estadoPe = (p: PessoaSituacao) =>
     p.estado === "atrasado" ? <Pill cor="#ef4444">Sem RDO {fmtDias(p.diasSemRdo)}</Pill>
-    : p.estado === "nunca" ? <Pill cor="#ef4444">Sem RDO em {JANELA_DIAS}d</Pill>
+    : p.estado === "sem_historico" ? <Pill cor="#94a3b8">Fora dos RDOs ({JANELA_DIAS}d)</Pill>
     : p.semRdoHoje ? <Pill cor="#f59e0b">Sem RDO hoje</Pill> : <Pill cor="#10b981">No RDO hoje</Pill>;
 
   const topEq = equipamentos.filter((e) => e.estado === "atrasado" || e.estado === "nunca").sort((a, b) => (b.diasSemDiario ?? 9999) - (a.diasSemDiario ?? 9999)).slice(0, tv ? 12 : 8);
-  const topPe = pessoas.filter((p) => p.estado === "atrasado" || p.estado === "nunca").sort((a, b) => (b.diasSemRdo ?? 9999) - (a.diasSemRdo ?? 9999)).slice(0, tv ? 12 : 8);
+  const topPe = pessoas.filter((p) => p.estado === "atrasado").sort((a, b) => (b.diasSemRdo ?? 9999) - (a.diasSemRdo ?? 9999)).slice(0, tv ? 12 : 8);
   const obrasSemRdo = obras.filter((o) => o.estado === "sem_rdo_hoje");
   const maxStatus = Math.max(1, ...Object.values(resumo.porStatus));
 
@@ -231,9 +232,9 @@ export default function CentralOperacoes() {
 
         <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
           <KpiCard valor={`${resumo.equipComDiarioHoje}/${resumo.equipMonitorados}`} rotulo="Equipamentos com diário hoje" tom="green" onClick={() => { setAba("equipamentos"); setSoAlertas(false); }} />
-          <KpiCard valor={resumo.equipAtrasados + resumo.equipNunca} rotulo={`Equip. sem diário há ${limite}+ dias`} tom={resumo.equipAtrasados + resumo.equipNunca ? "red" : "green"} onClick={() => { setAba("equipamentos"); setSoAlertas(true); }} />
+          <KpiCard valor={resumo.equipAtrasados + resumo.equipNunca} rotulo={`Equip. sem diário há ${limiteEq}+ dias`} tom={resumo.equipAtrasados + resumo.equipNunca ? "red" : "green"} onClick={() => { setAba("equipamentos"); setSoAlertas(true); }} />
           <KpiCard valor={`${resumo.pessoasComRdoHoje}/${resumo.pessoasMonitoradas}`} rotulo="Pessoas no RDO hoje" tom="green" onClick={() => { setAba("pessoas"); setSoAlertas(false); }} />
-          <KpiCard valor={resumo.pessoasAtrasadas} rotulo={`Pessoas sem RDO há ${limite}+ dias`} tom={resumo.pessoasAtrasadas ? "yellow" : "green"} onClick={() => { setAba("pessoas"); setSoAlertas(true); }} />
+          <KpiCard valor={resumo.pessoasAtrasadas} rotulo={`Pessoas sem RDO há ${limitePe}+ dias`} tom={resumo.pessoasAtrasadas ? "yellow" : "green"} onClick={() => { setAba("pessoas"); setSoAlertas(true); }} />
           <KpiCard valor={`${resumo.obrasComRdoHoje}/${resumo.obrasAtivas}`} rotulo="Obras com RDO hoje" onClick={() => setAba("obras")} />
           <KpiCard valor={resumo.emManutencao} rotulo="Em manutenção / inoperantes" tom={resumo.emManutencao ? "yellow" : "green"} />
         </section>
@@ -282,8 +283,8 @@ export default function CentralOperacoes() {
           <section className="flex flex-wrap items-end gap-3 rounded-xl border p-3">
             <label className="text-sm">Buscar<div className="relative"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-8" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={aba === "equipamentos" ? "frota, tipo, obra, operador" : "nome, função, equipe"} /></div></label>
             <label className="text-sm">Alerta a partir de
-              <select className="block h-10 rounded-md border bg-background px-3" value={limite} onChange={(e) => setLimite(+e.target.value)}>
-                {[1, 2, 3, 5, 7].map((n) => <option key={n} value={n}>{n} dia{n > 1 ? "s" : ""} sem lançamento</option>)}
+              <select className="block h-10 rounded-md border bg-background px-3" value={aba === "pessoas" ? limitePe : limiteEq} onChange={(e) => (aba === "pessoas" ? setLimitePe : setLimiteEq)(+e.target.value)}>
+                {[1, 2, 3, 4, 5, 7, 10].map((n) => <option key={n} value={n}>{n} dia{n > 1 ? "s" : ""} sem lançamento</option>)}
               </select></label>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={soAlertas} onChange={(e) => setSoAlertas(e.target.checked)} />Só pendências</label>
             {aba === "pessoas" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={incluirAdm} onChange={(e) => setIncluirAdm(e.target.checked)} />Incluir áreas administrativas</label>}
@@ -306,7 +307,7 @@ export default function CentralOperacoes() {
         </>}
 
         {aba === "pessoas" && <>
-          <p className="text-xs text-muted-foreground">{peVis.length} pessoa(s). Considera funcionários próprios ativos e RDO enviado (RDO automático e rascunho não contam); mesma exclusão de áreas do WF Programador. Reconhece por cadastro ou nome.</p>
+          <p className="text-xs text-muted-foreground">{peVis.length} pessoa(s). "Sem RDO" = já apareceu em RDO nos últimos 30 dias e sumiu; quem não aparece em nenhum RDO (provável fora de campo) só aparece sem o filtro "Só pendências". Considera funcionários próprios ativos e RDO enviado (RDO automático e rascunho não contam); mesma exclusão de áreas do WF Programador. Reconhece por cadastro ou nome.</p>
           <Tabela cols={["Nome", "Matrícula", "Função", "Equipe", "Última obra", "Último RDO", "Situação"]} vazio="Nenhuma pessoa para os filtros.">
             {peVis.map((p) => <tr key={p.id} className="border-t">
               <td className="p-2.5 font-medium">{p.nome}</td><td className="p-2.5">{p.matricula || "—"}</td><td className="p-2.5">{p.funcao || "—"}</td>
