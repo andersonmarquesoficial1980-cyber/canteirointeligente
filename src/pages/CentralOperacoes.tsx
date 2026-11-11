@@ -14,7 +14,7 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { addDaysLocalISO, toSaoPauloISODate } from "@/lib/date-local";
 import { AbaDivergencias, AbaMedidores, AbaPendenciasProgramador } from "@/components/relatorios/CentralOperacoesAbas";
 import {
-  norm, ogsKey, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas,
+  agruparPorLocal, norm, ogsKey, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas,
   type DiarioLite, type EmployeeBase, type EquipamentoBase, type EquipamentoSituacao, type OgsLite,
   type PessoaSituacao, type PresencaRdo, type RdoLite, type StatusOperacao, type TransporteLite,
 } from "@/lib/centralOperacoes";
@@ -100,6 +100,7 @@ export default function CentralOperacoes() {
   const [busca, setBusca] = useState("");
   const [soAlertas, setSoAlertas] = useState(true);
   const [incluirAdm, setIncluirAdm] = useState(false);
+  const [porObra, setPorObra] = useState(false);
   const [tv, setTv] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
 
@@ -295,9 +296,10 @@ export default function CentralOperacoes() {
                 {[1, 2, 3, 4, 5, 7, 10].map((n) => <option key={n} value={n}>{n} dia{n > 1 ? "s" : ""} sem lançamento</option>)}
               </select></label>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={soAlertas} onChange={(e) => setSoAlertas(e.target.checked)} />Só pendências</label>
+            {aba === "equipamentos" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={porObra} onChange={(e) => setPorObra(e.target.checked)} />Agrupar por obra</label>}
             {aba === "pessoas" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={incluirAdm} onChange={(e) => setIncluirAdm(e.target.checked)} />Incluir áreas administrativas</label>}
             <Button variant="outline" onClick={() => aba === "equipamentos"
-              ? exportarCsv("equipamentos", ["Frota", "Tipo", "Cadastro", "Situação", "OGS", "Local", "Operador", "Último diário", "Dias sem diário"], eqVis.map((e) => [e.frota, e.tipo, e.statusCadastro, STATUS_LABEL[e.statusOperacao], e.ogs, e.local, e.operador, fmtData(e.ultimoDiario), e.diasSemDiario ?? "nunca"]))
+              ? exportarCsv("equipamentos", ["Frota", "Tipo", "Equipe", "Cadastro", "Situação", "OGS", "Local", "Operador", "Último diário", "Dias sem diário"], eqVis.map((e) => [e.frota, e.tipo, e.equipe, e.statusCadastro, STATUS_LABEL[e.statusOperacao], e.ogs, e.local, e.operador, fmtData(e.ultimoDiario), e.diasSemDiario ?? "nunca"]))
               : exportarCsv("pessoas", ["Nome", "Matrícula", "Função", "Equipe", "Última obra", "Última data", "Dias sem RDO"], peVis.map((p) => [p.nome, p.matricula, p.funcao, p.equipe, p.ultimaObra, fmtData(p.ultimaData), p.diasSemRdo ?? "nunca"]))}>
               <Download className="mr-2 h-4 w-4" />CSV</Button>
           </section>
@@ -305,13 +307,32 @@ export default function CentralOperacoes() {
 
         {aba === "equipamentos" && <>
           <p className="text-xs text-muted-foreground">{eqVis.length} equipamento(s). "Diário" = enviado e manual; diário automático de pátio não conta como lançamento. Clique na linha para abrir o relatório do equipamento.</p>
-          <Tabela cols={["Frota", "Tipo", "Situação", "Obra (OGS) / Local", "Operador", "Último diário", "Lançamento"]} vazio="Nenhum equipamento para os filtros.">
+          {porObra ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {agruparPorLocal(eqVis).map((g) => (
+                <div key={g.chave} className="rounded-xl border bg-card p-3">
+                  <h3 className="mb-1 flex justify-between text-sm font-semibold"><span>{g.titulo}</span><span>{g.itens.length}</span></h3>
+                  <div className="mb-2 flex flex-wrap gap-1">{(Object.keys(g.porStatus) as StatusOperacao[]).map((st) => <Pill key={st} cor={STATUS_COR[st]}>{STATUS_LABEL[st]} {g.porStatus[st]}</Pill>)}</div>
+                  <ul className="space-y-1 text-sm">
+                    {g.itens.map((e) => (
+                      <li key={e.id} className="flex cursor-pointer justify-between gap-2 border-t pt-1 hover:bg-muted/40" onClick={() => abrirEquip(e)}>
+                        <span><b>{e.frota}</b> <span className="text-muted-foreground">{e.tipo}{e.equipe ? ` · ${e.equipe}` : ""}</span></span>
+                        <span className="whitespace-nowrap">{estadoEq(e)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : (
+          <Tabela cols={["Frota", "Tipo", "Situação", "Obra (OGS) / Local", "Equipe", "Operador", "Último diário", "Lançamento"]} vazio="Nenhum equipamento para os filtros.">
             {eqVis.map((e) => <tr key={e.id} className="cursor-pointer border-t hover:bg-muted/40" onClick={() => abrirEquip(e)}>
               <td className="p-2.5 font-medium">{e.frota}</td><td className="p-2.5">{e.tipo || e.nome || "—"}</td>
               <td className="p-2.5"><Pill cor={STATUS_COR[e.statusOperacao]}>{STATUS_LABEL[e.statusOperacao]}</Pill></td>
-              <td className="p-2.5">{e.ogs || e.local || "—"}</td><td className="p-2.5">{e.operador || "—"}</td>
+              <td className="p-2.5">{e.ogs || e.local || "—"}</td><td className="p-2.5">{e.equipe || "—"}</td><td className="p-2.5">{e.operador || "—"}</td>
               <td className="p-2.5">{fmtData(e.ultimoDiario)}</td><td className="p-2.5">{estadoEq(e)}</td></tr>)}
           </Tabela>
+          )}
         </>}
 
         {aba === "pessoas" && <>

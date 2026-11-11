@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { saltosMedidor, tiposSemDiario, areaExcluida, diffDays, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas, statusOperacaoDe } from "./centralOperacoes";
+import { agruparPorLocal, saltosMedidor, tiposSemDiario, areaExcluida, diffDays, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas, statusOperacaoDe } from "./centralOperacoes";
 
 const HOJE = "2026-11-11";
 const eq = (frota: string, status = "ativo") => ({ id: frota, frota, status });
@@ -138,5 +138,18 @@ describe("centralOperacoes — medidores", () => {
     const r = saltosMedidor([h("a", "2026-11-01", 100, 108), h("b", "2026-11-02", 120, 128)], "2026-11-01");
     expect(r[0]).toMatchObject({ medidor: "horimetro", tipo: "salto", diferenca: 12 });
     expect(saltosMedidor([h("a", "2026-11-01", 100, 108), h("b", "2026-11-02", 120, 128)], "2026-11-05")).toHaveLength(0);
+  });
+});
+
+describe("centralOperacoes — onde estão", () => {
+  it("agrupa por OGS, depois cadastro, e deixa 'Sem localização' por último; leva a equipe do cadastro", () => {
+    const e = [
+      { id: "1", frota: "A", status: "ativo", setor: "CBUQ01" }, { id: "2", frota: "B", status: "ativo" }, { id: "3", frota: "C", status: "ativo", setor: "CBUQ02" },
+    ];
+    const rows = situacaoEquipamentos(e, [dia("A", HOJE, { ogs_number: "OGS 2539" }), dia("C", HOJE, { ogs_number: "2539" })], [], HOJE);
+    expect(rows[0].equipe).toBe("CBUQ01");
+    const g = agruparPorLocal(rows);
+    expect(g[0]).toMatchObject({ chave: "OGS 2539" }); expect(g[0].itens).toHaveLength(2);
+    expect(g[g.length - 1].chave).toBe("Sem localização");
   });
 });

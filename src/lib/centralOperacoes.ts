@@ -43,7 +43,7 @@ export type StatusOperacao = "trabalhando" | "disposicao" | "manutencao" | "tran
 export type EstadoLancamento = "ok_hoje" | "atrasado" | "nunca" | "isento" | "sem_historico";
 
 export interface EquipamentoSituacao {
-  id: string; frota: string; nome: string; tipo: string;
+  id: string; frota: string; nome: string; tipo: string; equipe: string;
   statusCadastro: "OPERACIONAL" | "MANUTENÇÃO" | "INOPERANTE" | "DEVOLVER" | "DEVOLVIDO";
   monitorado: boolean;
   statusOperacao: StatusOperacao;
@@ -145,7 +145,7 @@ export function situacaoEquipamentos(
     else estado = (diasSemDiario ?? 0) >= limiteDias ? "atrasado" : "ok_hoje";
 
     return {
-      id: e.id, frota: e.frota, nome: e.nome || "", tipo: e.tipo || "",
+      id: e.id, frota: e.frota, nome: e.nome || "", tipo: e.tipo || "", equipe: e.setor || "",
       statusCadastro: sc, monitorado, statusOperacao, ogs, local, operador,
       ultimoDiario, diasSemDiario, semDiarioHoje, estado, fonte,
     };
@@ -318,4 +318,21 @@ export function saltosMedidor(rows: MeterDiary[], desde: string, tolHoras = 5, t
     });
   }
   return out.sort((a, b) => b.dataAtual.localeCompare(a.dataAtual) || a.frota.localeCompare(b.frota));
+}
+
+// ─── Onde estão (agrupamento por obra) ───────────────────────────────────────
+
+export interface GrupoLocal { chave: string; titulo: string; itens: EquipamentoSituacao[]; porStatus: Partial<Record<StatusOperacao, number>> }
+
+/** Agrupa por OGS (diário/transporte) ou, na falta, pelo local/equipe do cadastro. Sem localização → "Sem localização". */
+export function agruparPorLocal(eq: EquipamentoSituacao[]): GrupoLocal[] {
+  const m = new Map<string, GrupoLocal>();
+  for (const e of eq) {
+    const ogs = ogsKey(e.ogs);
+    const chave = ogs ? `OGS ${ogs}` : e.local || e.equipe ? `Cadastro: ${e.local || e.equipe}` : "Sem localização";
+    const g = m.get(chave) || m.set(chave, { chave, titulo: chave, itens: [], porStatus: {} }).get(chave)!;
+    g.itens.push(e); g.porStatus[e.statusOperacao] = (g.porStatus[e.statusOperacao] || 0) + 1;
+  }
+  const ordem = (g: GrupoLocal) => (g.chave.startsWith("OGS") ? 0 : g.chave === "Sem localização" ? 2 : 1);
+  return [...m.values()].sort((a, b) => ordem(a) - ordem(b) || b.itens.length - a.itens.length);
 }
