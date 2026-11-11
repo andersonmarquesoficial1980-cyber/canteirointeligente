@@ -57,7 +57,7 @@ describe("centralOperacoes — pessoas", () => {
     const rows = situacaoPessoas(
       [emp("1", "João Silva"), emp("2", "José Souza"), emp("3", "Ana Lima")],
       [{ employee_id: "1", nome: "x", data: HOJE, obra: "A", ogs: "1", equipe: "" }, { employee_id: null, nome: "JOSE SOUZA", data: "2026-11-08", obra: "B", ogs: "2", equipe: "" }],
-      HOJE,
+      HOJE, 2,
     );
     expect(rows.find((r) => r.id === "1")!.estado).toBe("ok_hoje");
     expect(rows.find((r) => r.id === "2")).toMatchObject({ estado: "atrasado", diasSemRdo: 3, ultimaObra: "B" });
@@ -151,5 +151,31 @@ describe("centralOperacoes — onde estão", () => {
     const g = agruparPorLocal(rows);
     expect(g[0]).toMatchObject({ chave: "OGS 2539" }); expect(g[0].itens).toHaveLength(2);
     expect(g[g.length - 1].chave).toBe("Sem localização");
+  });
+});
+
+describe("centralOperacoes — presença por qualquer lançamento", () => {
+  const emp = (id: string, name: string, role = "AJUDANTE") => ({ id, name, role, origem: "PROPRIO", status: "ativo", equipe: "ASFALTO 1" });
+  it("motorista que lança diário de equipamento NÃO é cobrado por RDO (caso Heleno)", () => {
+    const r = situacaoPessoas(
+      [emp("h", "Heleno Chaves", "MOTORISTA DE CARRETA")],
+      [{ employee_id: "h", nome: "x", data: "2026-11-10", obra: "2539", ogs: "2539", equipe: "", fonte: "diario" },
+       { employee_id: "h", nome: "x", data: "2026-10-18", obra: "A", ogs: "1", equipe: "", fonte: "rdo" }],
+      HOJE, 4);
+    expect(r[0]).toMatchObject({ estado: "ok_hoje", ultimaFonte: "diario", diasSemRegistro: 1 });
+    expect(r[0].fontes).toMatchObject({ diario: "2026-11-10", rdo: "2026-10-18" });
+  });
+  it("só alerta quando some de TODAS as fontes; alocação do Programador (folga) justifica", () => {
+    const rows = situacaoPessoas([emp("a", "Ana"), emp("b", "Bia"), emp("c", "Caio")], [
+      { employee_id: "a", nome: null, data: "2026-11-01", obra: "", ogs: "", equipe: "", fonte: "rdo" },
+      { employee_id: "b", nome: null, data: "2026-11-01", obra: "", ogs: "", equipe: "", fonte: "rdo" },
+      { employee_id: "b", nome: null, data: "2026-11-10", obra: "(folga)", ogs: "", equipe: "", fonte: "programador" },
+    ], HOJE, 4);
+    expect(rows.find((r) => r.id === "a")).toMatchObject({ estado: "atrasado", diasSemRegistro: 10 });
+    expect(rows.find((r) => r.id === "b")!.estado).toBe("ok_hoje");
+    expect(rows.find((r) => r.id === "c")!.estado).toBe("sem_historico");
+  });
+  it("função administrativa não entra", () => {
+    expect(situacaoPessoas([emp("x", "Z", "ASSISTENTE ADMINISTRATIVO")], [], HOJE)).toHaveLength(0);
   });
 });

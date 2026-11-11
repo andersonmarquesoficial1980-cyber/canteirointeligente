@@ -14,7 +14,7 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { addDaysLocalISO, toSaoPauloISODate } from "@/lib/date-local";
 import { AbaDivergencias, AbaMedidores, AbaPendenciasProgramador } from "@/components/relatorios/CentralOperacoesAbas";
 import {
-  agruparPorLocal, norm, ogsKey, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas,
+  agruparPorLocal, FONTE_LABEL, norm, ogsKey, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas,
   type DiarioLite, type EmployeeBase, type EquipamentoBase, type EquipamentoSituacao, type OgsLite,
   type PessoaSituacao, type PresencaRdo, type RdoLite, type StatusOperacao, type TransporteLite,
 } from "@/lib/centralOperacoes";
@@ -56,6 +56,8 @@ interface Dados {
   pessoas: EmployeeBase[]; presencas: PresencaRdo[]; rdos: RdoLite[]; ogs: OgsLite[];
 }
 
+const numDiario = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
 function KpiCard({ valor, rotulo, tom, onClick }: { valor: string | number; rotulo: string; tom?: "red" | "yellow" | "green"; onClick?: () => void }) {
   const cor = tom === "red" ? "#ef4444" : tom === "yellow" ? "#f59e0b" : tom === "green" ? "#10b981" : undefined;
   return (
@@ -70,6 +72,15 @@ function KpiCard({ valor, rotulo, tom, onClick }: { valor: string | number; rotu
 
 function Pill({ children, cor }: { children: React.ReactNode; cor: string }) {
   return <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap" style={{ background: cor + "22", color: cor }}>{children}</span>;
+}
+
+function Ajuda({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <details className="rounded-xl border bg-muted/30 p-3 text-sm [&_p]:mt-1.5 [&_ul]:mt-1.5" open>
+      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</summary>
+      <div className="mt-2 space-y-1">{children}</div>
+    </details>
+  );
 }
 
 function Tabela({ cols, children, vazio }: { cols: string[]; children: React.ReactNode; vazio?: string }) {
@@ -101,6 +112,7 @@ export default function CentralOperacoes() {
   const [soAlertas, setSoAlertas] = useState(true);
   const [incluirAdm, setIncluirAdm] = useState(false);
   const [porObra, setPorObra] = useState(false);
+  const [mostrarIsentos, setMostrarIsentos] = useState(false);
   const [tv, setTv] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
 
@@ -112,13 +124,17 @@ export default function CentralOperacoes() {
       const dia = toSaoPauloISODate();
       const ini = addDaysLocalISO(new Date(`${dia}T12:00:00`), -JANELA_DIAS);
       const sb = supabase as any;
-      const [equips, diarios, transportes, pessoas, rdos, ogs] = await Promise.all([
+      const [equips, diarios, transportes, pessoas, rdos, ogs, rdoTec, perfis, alocacoes] = await Promise.all([
         readAll<EquipamentoBase>((f, t) => sb.from("equipamentos").select("id,frota,nome,tipo,status,setor,local_atual").eq("company_id", companyId).order("frota").range(f, t)),
-        readAll<DiarioLite>((f, t) => sb.from("equipment_diaries").select("equipment_fleet,date,work_status,ogs_number,operator_name,status,is_auto,period").eq("company_id", companyId).gte("date", ini).order("date").order("id").range(f, t)),
+        readAll<DiarioLite>((f, t) => sb.from("equipment_diaries").select("equipment_fleet,date,work_status,ogs_number,operator_name,operator_id,operator_solo,operator_solo_id,status,is_auto,period").eq("company_id", companyId).gte("date", ini).order("date").order("id").range(f, t)),
         readAll<TransporteLite>((f, t) => sb.from("equipamento_transportes").select("equipment_fleet,data,origem_ogs,destino_ogs").eq("company_id", companyId).gte("data", ini).order("data").order("id").range(f, t)),
         readAll<EmployeeBase>((f, t) => sb.from("employees").select("id,name,matricula,role,equipe,centro_custo,origem,status,data_admissao,data_demissao").eq("company_id", companyId).eq("origem", "PROPRIO").eq("status", "ativo").order("name").range(f, t)),
-        readAll<RdoLite & { id: string }>((f, t) => sb.from("rdo_diarios").select("id,data,obra_nome,ogs_id,equipe,status_validacao,tipo_rdo").eq("company_id", companyId).gte("data", ini).order("data").order("id").range(f, t)),
+        readAll<RdoLite & { id: string; encarregado?: string | null; encarregado_employee_id?: string | null }>((f, t) => sb.from("rdo_diarios").select("id,data,obra_nome,ogs_id,equipe,encarregado,encarregado_employee_id,status_validacao,tipo_rdo").eq("company_id", companyId).gte("data", ini).order("data").order("id").range(f, t)),
         readAll<OgsLite>((f, t) => sb.from("ogs_reference").select("id,ogs_number,client_name,location_address").eq("company_id", companyId).order("id").range(f, t)),
+        // Fontes extras de presença: se uma falhar (permissão), a Central continua com as demais.
+        readAll<{ engenheiro_id: string; data: string; ogs_number: string | null }>((f, t) => sb.from("rdo_engenheiro").select("engenheiro_id,data,ogs_number").eq("company_id", companyId).gte("data", ini).order("id").range(f, t)).catch(() => [] as any[]),
+        readAll<{ user_id: string; nome_completo: string | null }>((f, t) => sb.from("profiles").select("user_id,nome_completo").eq("company_id", companyId).order("user_id").range(f, t)).catch(() => [] as any[]),
+        readAll<{ employee_id: string; data: string; tipo: string; ogs_number: string | null }>((f, t) => sb.from("alocacao_diaria").select("employee_id,data,tipo,ogs_number").eq("company_id", companyId).gte("data", ini).order("id").range(f, t)).catch(() => [] as any[]),
       ]);
       // Presença de pessoas: só RDO enviado e não automático (RDO automático gera presença presumida).
       const validos = rdos.filter((r) => norm(r.status_validacao) !== "RASCUNHO" && norm(r.tipo_rdo) !== "AUTOMATICO");
@@ -138,6 +154,24 @@ export default function CentralOperacoes() {
         if (!nomes.length) presencas.push({ employee_id: ef.employee_id, nome: null, ...base });
         nomes.forEach((n, i) => presencas.push({ employee_id: i === 0 ? ef.employee_id : null, nome: n, ...base }));
       }
+      // Encarregado do RDO também é presença.
+      for (const r of validos) {
+        if (!r.data) continue;
+        const o = r.ogs_id ? ogsPorId.get(r.ogs_id) : undefined;
+        const k = ogsKey(o?.ogs_number) || ogsKey(r.obra_nome);
+        if (r.encarregado_employee_id || r.encarregado) presencas.push({ employee_id: r.encarregado_employee_id || null, nome: r.encarregado || null, data: r.data, obra: r.obra_nome, ogs: k, equipe: r.equipe || "", fonte: "rdo" });
+      }
+      // Operadores e motoristas: diário de equipamento enviado e manual.
+      for (const d of diarios as any[]) {
+        if (d.is_auto === true || norm(d.status) !== "ENVIADO" || !d.date) continue;
+        const id = d.operator_id || d.operator_solo_id || null; const nome = numDiario(d.operator_name) || numDiario(d.operator_solo) || null;
+        if (id || nome) presencas.push({ employee_id: id, nome, data: d.date, obra: d.ogs_number || "", ogs: ogsKey(d.ogs_number), equipe: "", fonte: "diario" });
+      }
+      // Engenheiros: RDO Técnico (engenheiro_id = usuário; casa com o cadastro pelo nome do perfil).
+      const nomePerfil = new Map<string, string | null>(perfis.map((p): [string, string | null] => [p.user_id, p.nome_completo]));
+      for (const t of rdoTec) { const nome = nomePerfil.get(t.engenheiro_id); if (nome && t.data) presencas.push({ employee_id: null, nome, data: t.data, obra: t.ogs_number || "", ogs: ogsKey(t.ogs_number), equipe: "", fonte: "rdo_tecnico" }); }
+      // Programador: qualquer alocação (obra, base, folga, férias, atestado...) justifica a pessoa.
+      for (const a of alocacoes) presencas.push({ employee_id: a.employee_id, nome: null, data: a.data, obra: a.tipo === "obra" ? a.ogs_number || "" : `(${a.tipo})`, ogs: a.tipo === "obra" ? ogsKey(a.ogs_number) : "", equipe: "", fonte: "programador" });
       setDados({ equips, diarios, transportes, pessoas, presencas, rdos, ogs });
       setHoje(dia);
       setAtualizado(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
@@ -168,22 +202,24 @@ export default function CentralOperacoes() {
   const pessoas = useMemo(() => dados ? situacaoPessoas(dados.pessoas, dados.presencas, hoje, limitePe, incluirAdm) : [], [dados, hoje, limitePe, incluirAdm]);
   const pessoasPorOgsHoje = useMemo(() => {
     const m = new Map<string, Set<string>>();
-    for (const p of dados?.presencas || []) if (p.data === hoje && p.ogs) (m.get(p.ogs) || m.set(p.ogs, new Set()).get(p.ogs)!).add(p.employee_id || norm(p.nome));
+    for (const p of dados?.presencas || []) if (p.data === hoje && p.ogs && (p.fonte || "rdo") === "rdo") (m.get(p.ogs) || m.set(p.ogs, new Set()).get(p.ogs)!).add(p.employee_id || norm(p.nome));
     return new Map([...m].map(([k, v]) => [k, v.size]));
   }, [dados, hoje]);
   const obras = useMemo(() => dados ? situacaoObras(dados.ogs, dados.rdos, dados.diarios, pessoasPorOgsHoje, hoje) : [], [dados, pessoasPorOgsHoje, hoje]);
   const resumo = useMemo(() => resumoCentral(equipamentos, pessoas, obras), [equipamentos, pessoas, obras]);
 
+  const totalIsentos = equipamentos.filter((e) => e.estado === "isento" && e.statusCadastro === "OPERACIONAL").length;
   const q = norm(busca);
   const eqVis = equipamentos
     .filter((e) => e.statusCadastro !== "DEVOLVIDO")
+    .filter((e) => mostrarIsentos || e.estado !== "isento" || e.statusCadastro === "MANUTENÇÃO" || e.statusCadastro === "INOPERANTE")
     .filter((e) => !soAlertas || e.estado === "atrasado" || e.estado === "nunca")
     .filter((e) => !q || norm([e.frota, e.nome, e.tipo, e.ogs, e.local, e.operador].join(" ")).includes(q))
     .sort((a, b) => (b.diasSemDiario ?? 9999) - (a.diasSemDiario ?? 9999) || a.frota.localeCompare(b.frota));
   const peVis = pessoas
     .filter((p) => !soAlertas || p.estado === "atrasado")
     .filter((p) => !q || norm([p.nome, p.matricula, p.funcao, p.equipe, p.ultimaObra].join(" ")).includes(q))
-    .sort((a, b) => (b.diasSemRdo ?? 9999) - (a.diasSemRdo ?? 9999) || a.nome.localeCompare(b.nome));
+    .sort((a, b) => (b.diasSemRegistro ?? 9999) - (a.diasSemRegistro ?? 9999) || a.nome.localeCompare(b.nome));
 
   function exportarCsv(nome: string, cab: string[], linhas: (string | number)[][]) {
     const csv = [cab, ...linhas].map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
@@ -199,12 +235,13 @@ export default function CentralOperacoes() {
     : e.estado === "isento" ? <Pill cor="#94a3b8">Não monitorado</Pill>
     : e.semDiarioHoje ? <Pill cor="#f59e0b">Sem diário hoje</Pill> : <Pill cor="#10b981">Diário em dia</Pill>;
   const estadoPe = (p: PessoaSituacao) =>
-    p.estado === "atrasado" ? <Pill cor="#ef4444">Sem RDO {fmtDias(p.diasSemRdo)}</Pill>
-    : p.estado === "sem_historico" ? <Pill cor="#94a3b8">Fora dos RDOs ({JANELA_DIAS}d)</Pill>
-    : p.semRdoHoje ? <Pill cor="#f59e0b">Sem RDO hoje</Pill> : <Pill cor="#10b981">No RDO hoje</Pill>;
+    p.estado === "atrasado" ? <Pill cor="#ef4444">Sem nenhum registro {fmtDias(p.diasSemRegistro)}</Pill>
+    : p.estado === "sem_historico" ? <Pill cor="#94a3b8">Sem registro em {JANELA_DIAS} dias</Pill>
+    : p.semRegistroHoje ? <Pill cor="#f59e0b">Visto {fmtDias(p.diasSemRegistro)}</Pill> : <Pill cor="#10b981">Apareceu hoje</Pill>;
+  const ultimoReg = (p: PessoaSituacao) => p.ultimaData ? `${fmtData(p.ultimaData)} · ${p.ultimaFonte ? FONTE_LABEL[p.ultimaFonte] : ""}` : "—";
 
   const topEq = equipamentos.filter((e) => e.estado === "atrasado" || e.estado === "nunca").sort((a, b) => (b.diasSemDiario ?? 9999) - (a.diasSemDiario ?? 9999)).slice(0, tv ? 12 : 8);
-  const topPe = pessoas.filter((p) => p.estado === "atrasado").sort((a, b) => (b.diasSemRdo ?? 9999) - (a.diasSemRdo ?? 9999)).slice(0, tv ? 12 : 8);
+  const topPe = pessoas.filter((p) => p.estado === "atrasado").sort((a, b) => (b.diasSemRegistro ?? 9999) - (a.diasSemRegistro ?? 9999)).slice(0, tv ? 12 : 8);
   const obrasSemRdo = obras.filter((o) => o.estado === "sem_rdo_hoje");
   const maxStatus = Math.max(1, ...Object.values(resumo.porStatus));
 
@@ -234,10 +271,10 @@ export default function CentralOperacoes() {
         </nav>
 
         <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <KpiCard valor={`${resumo.equipComDiarioHoje}/${resumo.equipMonitorados}`} rotulo="Equipamentos com diário hoje" tom="green" onClick={() => { setAba("equipamentos"); setSoAlertas(false); }} />
+          <KpiCard valor={`${resumo.equipComDiarioHoje}/${resumo.equipMonitorados}`} rotulo="Equipamentos com diário lançado hoje" tom="green" onClick={() => { setAba("equipamentos"); setSoAlertas(false); }} />
           <KpiCard valor={resumo.equipAtrasados + resumo.equipNunca} rotulo={`Equip. sem diário há ${limiteEq}+ dias`} tom={resumo.equipAtrasados + resumo.equipNunca ? "red" : "green"} onClick={() => { setAba("equipamentos"); setSoAlertas(true); }} />
-          <KpiCard valor={`${resumo.pessoasComRdoHoje}/${resumo.pessoasMonitoradas}`} rotulo="Pessoas no RDO hoje" tom="green" onClick={() => { setAba("pessoas"); setSoAlertas(false); }} />
-          <KpiCard valor={resumo.pessoasAtrasadas} rotulo={`Pessoas sem RDO há ${limitePe}+ dias`} tom={resumo.pessoasAtrasadas ? "yellow" : "green"} onClick={() => { setAba("pessoas"); setSoAlertas(true); }} />
+          <KpiCard valor={`${resumo.pessoasComRdoHoje}/${resumo.pessoasMonitoradas}`} rotulo="Pessoas com algum registro hoje" tom="green" onClick={() => { setAba("pessoas"); setSoAlertas(false); }} />
+          <KpiCard valor={resumo.pessoasAtrasadas} rotulo={`Pessoas sem nenhum registro há ${limitePe}+ dias`} tom={resumo.pessoasAtrasadas ? "yellow" : "green"} onClick={() => { setAba("pessoas"); setSoAlertas(true); }} />
           <KpiCard valor={`${resumo.obrasComRdoHoje}/${resumo.obrasAtivas}`} rotulo="Obras com RDO hoje" onClick={() => setAba("obras")} />
           <KpiCard valor={resumo.emManutencao} rotulo="Em manutenção / inoperantes" tom={resumo.emManutencao ? "yellow" : "green"} />
         </section>
@@ -269,7 +306,7 @@ export default function CentralOperacoes() {
             </div>
             <div className="space-y-4">
               <div>
-                <h2 className="mb-2 text-sm font-semibold">Equipamentos sem diário ({resumo.equipAtrasados + resumo.equipNunca})</h2>
+                <h2 className="mb-2 text-sm font-semibold">Equipamentos que deveriam ter diário e estão sem ({resumo.equipAtrasados + resumo.equipNunca})</h2>
                 <Tabela cols={["Frota", "Tipo", "Último diário", "Onde estava", "Situação"]} vazio="Nenhum equipamento monitorado está atrasado.">
                   {topEq.map((e) => <tr key={e.id} className="cursor-pointer border-t hover:bg-muted/40" onClick={() => abrirEquip(e)}>
                     <td className="p-2.5 font-medium">{e.frota}</td><td className="p-2.5">{e.tipo || e.nome || "—"}</td>
@@ -277,11 +314,11 @@ export default function CentralOperacoes() {
                 </Tabela>
               </div>
               <div>
-                <h2 className="mb-2 text-sm font-semibold">Pessoas sem RDO ({resumo.pessoasAtrasadas})</h2>
-                <Tabela cols={["Nome", "Função", "Equipe", "Última obra", "Situação"]} vazio="Todas as pessoas monitoradas estão em RDO recente.">
+                <h2 className="mb-2 text-sm font-semibold">Pessoas que sumiram dos lançamentos ({resumo.pessoasAtrasadas})</h2>
+                <Tabela cols={["Nome", "Função", "Equipe", "Último registro", "Situação"]} vazio="Todas as pessoas acompanhadas apareceram em algum lançamento recentemente.">
                   {topPe.map((p) => <tr key={p.id} className="border-t">
                     <td className="p-2.5 font-medium">{p.nome}</td><td className="p-2.5">{p.funcao || "—"}</td><td className="p-2.5">{p.equipe || "—"}</td>
-                    <td className="p-2.5">{p.ultimaObra || "—"}{p.ultimaData ? ` (${fmtData(p.ultimaData)})` : ""}</td><td className="p-2.5">{estadoPe(p)}</td></tr>)}
+                    <td className="p-2.5">{ultimoReg(p)}</td><td className="p-2.5">{estadoPe(p)}</td></tr>)}
                 </Tabela>
               </div>
             </div>
@@ -296,17 +333,22 @@ export default function CentralOperacoes() {
                 {[1, 2, 3, 4, 5, 7, 10].map((n) => <option key={n} value={n}>{n} dia{n > 1 ? "s" : ""} sem lançamento</option>)}
               </select></label>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={soAlertas} onChange={(e) => setSoAlertas(e.target.checked)} />Só pendências</label>
+            {aba === "equipamentos" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={mostrarIsentos} onChange={(e) => setMostrarIsentos(e.target.checked)} />Mostrar também os que não lançam diário</label>}
             {aba === "equipamentos" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={porObra} onChange={(e) => setPorObra(e.target.checked)} />Agrupar por obra</label>}
             {aba === "pessoas" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={incluirAdm} onChange={(e) => setIncluirAdm(e.target.checked)} />Incluir áreas administrativas</label>}
             <Button variant="outline" onClick={() => aba === "equipamentos"
               ? exportarCsv("equipamentos", ["Frota", "Tipo", "Equipe", "Cadastro", "Situação", "OGS", "Local", "Operador", "Último diário", "Dias sem diário"], eqVis.map((e) => [e.frota, e.tipo, e.equipe, e.statusCadastro, STATUS_LABEL[e.statusOperacao], e.ogs, e.local, e.operador, fmtData(e.ultimoDiario), e.diasSemDiario ?? "nunca"]))
-              : exportarCsv("pessoas", ["Nome", "Matrícula", "Função", "Equipe", "Última obra", "Última data", "Dias sem RDO"], peVis.map((p) => [p.nome, p.matricula, p.funcao, p.equipe, p.ultimaObra, fmtData(p.ultimaData), p.diasSemRdo ?? "nunca"]))}>
+              : exportarCsv("pessoas", ["Nome", "Matrícula", "Função", "Equipe", "Último registro", "Fonte", "Dias sem registro"], peVis.map((p) => [p.nome, p.matricula, p.funcao, p.equipe, fmtData(p.ultimaData), p.ultimaFonte ? FONTE_LABEL[p.ultimaFonte] : "", p.diasSemRegistro ?? "nunca"]))}>
               <Download className="mr-2 h-4 w-4" />CSV</Button>
           </section>
         )}
 
         {aba === "equipamentos" && <>
-          <p className="text-xs text-muted-foreground">{eqVis.length} equipamento(s). "Diário" = enviado e manual; diário automático de pátio não conta como lançamento. Clique na linha para abrir o relatório do equipamento.</p>
+          <Ajuda titulo="Como ler esta tela">
+            <p>Mostra os equipamentos <b>ativos que lançam diário</b> (operador ou motorista), onde estavam no último diário, e há quantos dias não têm diário.</p>
+            <p>Equipamentos que ninguém lança diário (banheiro químico, torre de iluminação, compressor, rompedor, gerador etc.) ficam <b>fora da lista</b> para não gerar alarme falso{totalIsentos ? ` (${totalIsentos} no momento)` : ""}. Diário automático de pátio não conta como lançamento. Clique numa linha para abrir o relatório do equipamento.</p>
+          </Ajuda>
+          <p className="text-xs text-muted-foreground">{eqVis.length} equipamento(s).</p>
           {porObra ? (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {agruparPorLocal(eqVis).map((g) => (
@@ -336,11 +378,21 @@ export default function CentralOperacoes() {
         </>}
 
         {aba === "pessoas" && <>
-          <p className="text-xs text-muted-foreground">{peVis.length} pessoa(s). "Sem RDO" = já apareceu em RDO nos últimos 30 dias e sumiu; quem não aparece em nenhum RDO (provável fora de campo) só aparece sem o filtro "Só pendências". Considera funcionários próprios ativos e RDO enviado (RDO automático e rascunho não contam); mesma exclusão de áreas do WF Programador. Reconhece por cadastro ou nome.</p>
-          <Tabela cols={["Nome", "Matrícula", "Função", "Equipe", "Última obra", "Último RDO", "Situação"]} vazio="Nenhuma pessoa para os filtros.">
+          <Ajuda titulo="Como ler esta tela">
+            <p>Mostra <b>funcionários próprios ativos de campo</b> e a <b>última vez que apareceram em algum lançamento</b>. Cada um é registrado num lugar diferente:</p>
+            <ul className="ml-4 list-disc">
+              <li><b>Citado em RDO</b> — equipe lançada pelo apontador (ajudantes, rasteleiros, encarregados...).</li>
+              <li><b>Diário de equipamento</b> — operadores e motoristas.</li>
+              <li><b>RDO Técnico</b> — engenheiros.</li>
+              <li><b>Alocado no Programador</b> — folga, férias, atestado, base ou obra.</li>
+            </ul>
+            <p>"Sem nenhum registro há N dias" = a pessoa apareceu nos últimos {JANELA_DIAS} dias mas <b>não aparece em nenhum desses lugares há N dias ou mais</b>. Pode ser férias, afastamento ou lançamento esquecido. Quem não aparece em nada nos {JANELA_DIAS} dias fica como "Sem registro" (provavelmente não é de campo).</p>
+          </Ajuda>
+          <p className="text-xs text-muted-foreground">{peVis.length} pessoa(s).</p>
+          <Tabela cols={["Nome", "Função", "Equipe", "Último registro", "Situação"]} vazio="Nenhuma pessoa para os filtros.">
             {peVis.map((p) => <tr key={p.id} className="border-t">
-              <td className="p-2.5 font-medium">{p.nome}</td><td className="p-2.5">{p.matricula || "—"}</td><td className="p-2.5">{p.funcao || "—"}</td>
-              <td className="p-2.5">{p.equipe || "—"}</td><td className="p-2.5">{p.ultimaObra || "—"}</td><td className="p-2.5">{fmtData(p.ultimaData)}</td><td className="p-2.5">{estadoPe(p)}</td></tr>)}
+              <td className="p-2.5 font-medium">{p.nome}</td><td className="p-2.5">{p.funcao || "—"}</td><td className="p-2.5">{p.equipe || "—"}</td>
+              <td className="p-2.5">{ultimoReg(p)}{p.ultimaObra ? <span className="text-muted-foreground"> · {p.ultimaObra}</span> : null}</td><td className="p-2.5">{estadoPe(p)}</td></tr>)}
           </Tabela>
         </>}
 

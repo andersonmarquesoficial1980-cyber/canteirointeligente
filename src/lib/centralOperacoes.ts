@@ -159,7 +159,12 @@ export interface EmployeeBase {
   centro_custo?: string | null; origem?: string | null; status?: string | null;
   data_admissao?: string | null; data_demissao?: string | null;
 }
-export interface PresencaRdo { employee_id: string | null; nome: string | null; data: string; obra: string; ogs: string; equipe: string }
+export type FontePresenca = "rdo" | "diario" | "rdo_tecnico" | "programador";
+export const FONTE_LABEL: Record<FontePresenca, string> = {
+  rdo: "Citado em RDO", diario: "Diário de equipamento", rdo_tecnico: "RDO Técnico", programador: "Alocado no Programador",
+};
+/** Uma "aparição" da pessoa em algum lançamento. `fonte` omitida = RDO (compatibilidade). */
+export interface PresencaRdo { employee_id: string | null; nome: string | null; data: string; obra: string; ogs: string; equipe: string; fonte?: FontePresenca }
 
 /** Mesma exclusão de áreas do WF Programador (wf_auto_rdo_area_excluida + GRU/COPASA). */
 export function areaExcluida(equipe: string | null | undefined, cc: string | null | undefined): boolean {
@@ -171,46 +176,54 @@ export function areaExcluida(equipe: string | null | undefined, cc: string | nul
 
 export interface PessoaSituacao {
   id: string; nome: string; matricula: string; funcao: string; equipe: string;
-  ultimaData: string | null; diasSemRdo: number | null; ultimaObra: string; ultimaOgs: string;
-  semRdoHoje: boolean; estado: EstadoLancamento;
+  /** Última vez que apareceu em QUALQUER lançamento, e em qual. */
+  ultimaData: string | null; ultimaFonte: FontePresenca | null; diasSemRegistro: number | null;
+  ultimaObra: string; ultimaOgs: string;
+  fontes: Partial<Record<FontePresenca, string>>;
+  /** Compat: igual a diasSemRegistro. */
+  diasSemRdo: number | null;
+  semRegistroHoje: boolean; semRdoHoje: boolean; estado: EstadoLancamento;
 }
 
+/**
+ * Presença = aparecer em QUALQUER lançamento: citado no RDO (equipe do apontador), operador/motorista no
+ * diário de equipamento, engenheiro no RDO Técnico ou alocado pelo Programador (folga, férias, atestado...).
+ * Alerta ("atrasado") só quando já apareceu na janela mas está há N+ dias sem aparecer em NENHUM lançamento.
+ * Quem não aparece em nada na janela = "sem_historico" (provável fora de campo; não é alerta).
+ */
 export function situacaoPessoas(
-  pessoas: EmployeeBase[], presencas: PresencaRdo[], hoje: string, limiteDias = 2, incluirAreasExcluidas = false,
+  pessoas: EmployeeBase[], presencas: PresencaRdo[], hoje: string, limiteDias = 4, incluirAreasExcluidas = false,
 ): PessoaSituacao[] {
-  const porId = new Map<string, PresencaRdo>();
-  const porNome = new Map<string, PresencaRdo>();
-  const hojeIds = new Set<string>(); const hojeNomes = new Set<string>();
+  type Acc = { ultimo?: PresencaRdo; fontes: Partial<Record<FontePresenca, string>>; hoje: boolean };
+  const porId = new Map<string, Acc>(); const porNome = new Map<string, Acc>();
+  const toca = (m: Map<string, Acc>, k: string, p: PresencaRdo) => {
+    const a = m.get(k) || m.set(k, { fontes: {}, hoje: false }).get(k)!;
+    const f = p.fonte || "rdo";
+    if (!a.ultimo || p.data > a.ultimo.data) a.ultimo = { ...p, fonte: f };
+    if (!a.fontes[f] || p.data > a.fontes[f]!) a.fontes[f] = p.data;
+    if (p.data === hoje) a.hoje = true;
+  };
   for (const p of presencas) {
-    const nk = norm(p.nome);
-    if (p.employee_id) {
-      const c = porId.get(p.employee_id);
-      if (!c || p.data > c.data) porId.set(p.employee_id, p);
-      if (p.data === hoje) hojeIds.add(p.employee_id);
-    }
-    if (nk) {
-      const c = porNome.get(nk);
-      if (!c || p.data > c.data) porNome.set(nk, p);
-      if (p.data === hoje) hojeNomes.add(nk);
-    }
+    if (p.employee_id) toca(porId, p.employee_id, p);
+    const nk = norm(p.nome); if (nk) toca(porNome, nk, p);
   }
   const out: PessoaSituacao[] = [];
   for (const e of pessoas) {
     if ((e.origem || "PROPRIO") !== "PROPRIO" || (e.status || "ativo") !== "ativo") continue;
     if (e.data_demissao && e.data_demissao < hoje) continue;
     if (e.data_admissao && /^\d{4}-\d{2}-\d{2}/.test(e.data_admissao) && e.data_admissao.slice(0, 10) > hoje) continue;
-    if (!incluirAreasExcluidas && areaExcluida(e.equipe, e.centro_custo)) continue;
-    const nk = norm(e.name);
-    const a = porId.get(e.id); const b = porNome.get(nk);
-    const ult = !a ? b : !b ? a : a.data >= b.data ? a : b;
-    const semRdoHoje = !(hojeIds.has(e.id) || hojeNomes.has(nk));
+    if (!incluirAreasExcluidas && (areaExcluida(e.equipe, e.centro_custo) || /ADMINISTRATIV/.test(norm(e.role)))) continue;
+    const a = porId.get(e.id); const b = porNome.get(norm(e.name));
+    const fontes: Partial<Record<FontePresenca, string>> = {};
+    for (const acc of [a, b]) for (const [f, d] of Object.entries(acc?.fontes || {})) if (!fontes[f as FontePresenca] || d! > fontes[f as FontePresenca]!) fontes[f as FontePresenca] = d;
+    const ult = !a?.ultimo ? b?.ultimo : !b?.ultimo ? a.ultimo : a.ultimo.data >= b.ultimo.data ? a.ultimo : b.ultimo;
+    const hojeOk = !!(a?.hoje || b?.hoje);
     const dias = ult ? Math.max(0, diffDays(ult.data, hoje)) : null;
-    // Quem nunca aparece nos RDOs da janela provavelmente não é de campo: não é alerta ("sem_historico").
-    const estado: EstadoLancamento = !semRdoHoje ? "ok_hoje" : ult === undefined ? "sem_historico" : (dias ?? 0) >= limiteDias ? "atrasado" : "ok_hoje";
+    const estado: EstadoLancamento = hojeOk ? "ok_hoje" : !ult ? "sem_historico" : (dias ?? 0) >= limiteDias ? "atrasado" : "ok_hoje";
     out.push({
       id: e.id, nome: e.name, matricula: e.matricula || "", funcao: e.role || "", equipe: e.equipe || "",
-      ultimaData: ult?.data || null, diasSemRdo: dias, ultimaObra: ult?.obra || "", ultimaOgs: ult?.ogs || "",
-      semRdoHoje, estado,
+      ultimaData: ult?.data || null, ultimaFonte: (ult?.fonte as FontePresenca) || null, diasSemRegistro: dias, diasSemRdo: dias,
+      ultimaObra: ult?.obra || "", ultimaOgs: ult?.ogs || "", fontes, semRegistroHoje: !hojeOk, semRdoHoje: !hojeOk, estado,
     });
   }
   return out;
