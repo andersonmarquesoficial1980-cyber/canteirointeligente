@@ -74,9 +74,9 @@ function Pill({ children, cor }: { children: React.ReactNode; cor: string }) {
   return <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap" style={{ background: cor + "22", color: cor }}>{children}</span>;
 }
 
-function Ajuda({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Ajuda({ titulo, children, aberto = true }: { titulo: string; children: React.ReactNode; aberto?: boolean }) {
   return (
-    <details className="rounded-xl border bg-muted/30 p-3 text-sm [&_p]:mt-1.5 [&_ul]:mt-1.5" open>
+    <details className="rounded-xl border bg-muted/30 p-3 text-sm [&_p]:mt-1.5 [&_ul]:mt-1.5" open={aberto}>
       <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</summary>
       <div className="mt-2 space-y-1">{children}</div>
     </details>
@@ -256,7 +256,7 @@ export default function CentralOperacoes() {
   const maxStatus = Math.max(1, ...Object.values(resumo.porStatus));
 
   return (
-    <div ref={raiz} className={`mx-auto space-y-4 p-4 ${tv ? "max-w-none min-h-screen bg-background text-[15px]" : "max-w-7xl"}`}>
+    <div ref={raiz} className={`mx-auto space-y-4 p-4 ${tv ? "max-w-none h-screen overflow-y-auto bg-background text-[15px]" : "max-w-7xl"}`}>
       <header className="flex flex-wrap items-start gap-3">
         {!tv && <Button variant="outline" size="icon" aria-label="Voltar" onClick={() => goBack()}><ArrowLeft className="h-4 w-4" /></Button>}
         <div className="flex-1">
@@ -356,7 +356,7 @@ export default function CentralOperacoes() {
         )}
 
         {aba === "equipamentos" && <>
-          <Ajuda titulo="Como ler esta tela">
+          <Ajuda key={String(tv)} aberto={!tv} titulo="Como ler esta tela">
             <p>Mostra os equipamentos <b>ativos que lançam diário</b> (operador ou motorista), onde estavam no último diário, e há quantos dias não têm diário.</p>
             <p>Equipamentos que ninguém lança diário (banheiro químico, torre de iluminação, compressor, rompedor, gerador etc.) ficam <b>fora da lista</b> para não gerar alarme falso{totalIsentos ? ` (${totalIsentos} no momento)` : ""}. Diário automático de pátio não conta como lançamento. Clique numa linha para abrir o relatório do equipamento.</p>
           </Ajuda>
@@ -390,7 +390,7 @@ export default function CentralOperacoes() {
         </>}
 
         {aba === "pessoas" && <>
-          <Ajuda titulo="Como ler esta tela">
+          <Ajuda key={String(tv)} aberto={!tv} titulo="Como ler esta tela">
             <p>Mostra <b>funcionários próprios ativos de campo</b> e a <b>última vez que apareceram em algum lançamento</b>. Cada um é registrado num lugar diferente:</p>
             <ul className="ml-4 list-disc">
               <li><b>Citado em RDO</b> — equipe lançada pelo apontador (ajudantes, rasteleiros, encarregados...).</li>
