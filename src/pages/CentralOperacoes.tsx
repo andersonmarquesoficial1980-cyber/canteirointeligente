@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { addDaysLocalISO, toSaoPauloISODate } from "@/lib/date-local";
+import { AbaDivergencias, AbaPendenciasProgramador } from "@/components/relatorios/CentralOperacoesAbas";
 import {
   norm, ogsKey, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas,
   type DiarioLite, type EmployeeBase, type EquipamentoBase, type EquipamentoSituacao, type OgsLite,
@@ -22,7 +23,9 @@ const JANELA_DIAS = 30;
 const TABS = [
   { id: "hoje", label: "Hoje" }, { id: "equipamentos", label: "Equipamentos" },
   { id: "pessoas", label: "Pessoas" }, { id: "obras", label: "Obras" },
+  { id: "pendencias", label: "Pendências do Programador" }, { id: "divergencias", label: "Divergências RDO × Diário" },
 ] as const;
+const ABAS_TV: TabId[] = ["hoje", "equipamentos", "pessoas", "obras"]; // abas sob demanda não entram na rotação da TV
 type TabId = (typeof TABS)[number]["id"];
 
 const STATUS_LABEL: Record<StatusOperacao, string> = {
@@ -147,7 +150,7 @@ export default function CentralOperacoes() {
   // Modo TV: rotaciona as abas a cada 20s.
   useEffect(() => {
     if (!tv) return;
-    const t = setInterval(() => setAba((a) => TABS[(TABS.findIndex((x) => x.id === a) + 1) % TABS.length].id), 20_000);
+    const t = setInterval(() => setAba((a) => ABAS_TV[(Math.max(0, ABAS_TV.indexOf(a)) + 1) % ABAS_TV.length]), 20_000);
     return () => clearInterval(t);
   }, [tv]);
   useEffect(() => {
@@ -227,7 +230,6 @@ export default function CentralOperacoes() {
             <button key={t.id} type="button" onClick={() => setAba(t.id)} aria-current={aba === t.id ? "page" : undefined}
               className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${aba === t.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>{t.label}</button>
           ))}
-          <button type="button" onClick={() => navigate("/programador/pendencias")} className="rounded-lg border px-3 py-1.5 text-sm font-semibold hover:bg-muted">Pendências do Programador →</button>
         </nav>
 
         <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
@@ -238,6 +240,12 @@ export default function CentralOperacoes() {
           <KpiCard valor={`${resumo.obrasComRdoHoje}/${resumo.obrasAtivas}`} rotulo="Obras com RDO hoje" onClick={() => setAba("obras")} />
           <KpiCard valor={resumo.emManutencao} rotulo="Em manutenção / inoperantes" tom={resumo.emManutencao ? "yellow" : "green"} />
         </section>
+
+        {aba === "hoje" && new Date().getHours() < 16 && (
+          <p className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+            Dia em andamento ({new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}): os lançamentos de hoje ainda estão chegando. Os alertas contam <b>dias sem lançar</b>, então não dependem do fechamento de hoje.
+          </p>
+        )}
 
         {aba === "hoje" && (
           <section className="grid gap-4 lg:grid-cols-[260px_1fr]">
@@ -314,6 +322,9 @@ export default function CentralOperacoes() {
               <td className="p-2.5">{p.equipe || "—"}</td><td className="p-2.5">{p.ultimaObra || "—"}</td><td className="p-2.5">{fmtData(p.ultimaData)}</td><td className="p-2.5">{estadoPe(p)}</td></tr>)}
           </Tabela>
         </>}
+
+        {aba === "pendencias" && profile?.company_id && <AbaPendenciasProgramador companyId={profile.company_id} />}
+        {aba === "divergencias" && profile?.company_id && <AbaDivergencias companyId={profile.company_id} />}
 
         {aba === "obras" && (
           <Tabela cols={["Obra", "OGS", "Cliente", "RDO hoje", "Último RDO", "Equipamentos hoje", "Pessoas hoje", "Situação"]} vazio="Nenhuma obra com RDO nos últimos 14 dias.">
