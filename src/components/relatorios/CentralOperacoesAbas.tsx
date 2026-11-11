@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { addDaysLocalISO, toSaoPauloISODate } from "@/lib/date-local";
 import { reconcileRdoDiaries, type DiaryDivergence } from "@/lib/rdoDiaryDivergences";
-import { norm } from "@/lib/centralOperacoes";
+import { norm, saltosMedidor, type SaltoMedidor } from "@/lib/centralOperacoes";
+import type { MeterDiary } from "@/lib/equipmentDiaryAudit";
 
 const fmt = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
 export const ontemSP = () => addDaysLocalISO(new Date(`${toSaoPauloISODate()}T12:00:00`), -1);
@@ -165,6 +166,85 @@ export function AbaDivergencias({ companyId }: { companyId: string }) {
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─── Medidores ───────────────────────────────────────────────────────────────
+const num = (v: unknown) => (v === null || v === undefined || v === "" ? null : Number(v));
+const fmtNum = (n: number) => n.toLocaleString("pt-BR");
+
+export function AbaMedidores({ companyId }: { companyId: string }) {
+  const navigate = useNavigate();
+  const [dias, setDias] = useState(15);
+  const [tolKm, setTolKm] = useState(50);
+  const [tolHoras, setTolHoras] = useState(5);
+  const [tipo, setTipo] = useState("todos");
+  const [linhas, setLinhas] = useState<MeterDiary[] | null>(null);
+  const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setCarregando(true); setErro("");
+    try {
+      const ini = addDaysLocalISO(new Date(`${toSaoPauloISODate()}T12:00:00`), -(60)); // base de 60d para achar o lançamento anterior
+      const rows = await readAll<any>((f, t) => (supabase as any).from("equipment_diaries")
+        .select("id,equipment_fleet,operator_name,date,period,created_at,status,is_auto,meter_initial,meter_final,odometer_initial,odometer_final")
+        .eq("company_id", companyId).gte("date", ini).order("date").order("id").range(f, t));
+      setLinhas(rows.map((r) => ({ ...r, meter_initial: num(r.meter_initial), meter_final: num(r.meter_final), odometer_initial: num(r.odometer_initial), odometer_final: num(r.odometer_final) })));
+    } catch (e) { setLinhas(null); setErro(e instanceof Error ? e.message : "Falha ao consultar medidores."); }
+    setCarregando(false);
+  }, [companyId]);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const saltos: SaltoMedidor[] = useMemo(() => {
+    if (!linhas) return [];
+    const desde = addDaysLocalISO(new Date(`${toSaoPauloISODate()}T12:00:00`), -dias);
+    return saltosMedidor(linhas, desde, tolHoras, tolKm);
+  }, [linhas, dias, tolKm, tolHoras]);
+  const vis = saltos.filter((x) => tipo === "todos" || x.tipo === tipo);
+  const un = (x: SaltoMedidor) => (x.medidor === "odometro" ? "km" : "h");
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border p-3">
+        <label className="text-sm">Período
+          <select className="block h-10 rounded-md border bg-background px-3" value={dias} onChange={(e) => setDias(+e.target.value)}>{[7, 15, 30].map((n) => <option key={n} value={n}>últimos {n} dias</option>)}</select></label>
+        <label className="text-sm">Tipo
+          <select className="block h-10 rounded-md border bg-background px-3" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            <option value="todos">Todos ({saltos.length})</option>
+            <option value="regressao">Medidor voltou ({saltos.filter((x) => x.tipo === "regressao").length})</option>
+            <option value="salto">Rodou sem diário ({saltos.filter((x) => x.tipo === "salto").length})</option></select></label>
+        <label className="text-sm">Ignorar até (km)<Input type="number" min={0} className="w-24" value={tolKm} onChange={(e) => setTolKm(Math.max(0, +e.target.value))} /></label>
+        <label className="text-sm">Ignorar até (h)<Input type="number" min={0} className="w-24" value={tolHoras} onChange={(e) => setTolHoras(Math.max(0, +e.target.value))} /></label>
+        <Button variant="outline" size="icon" aria-label="Atualizar aba" onClick={carregar}><RefreshCw className={`h-4 w-4 ${carregando ? "animate-spin" : ""}`} /></Button>
+      </div>
+      <p className="text-xs text-muted-foreground">Compara o <b>medidor final</b> de um diário com o <b>inicial</b> do próximo, por frota (só diários enviados e manuais). <b>Medidor voltou</b> = provável erro de digitação (ex.: zero a mais). <b>Rodou sem diário</b> = o equipamento andou/trabalhou entre dois lançamentos; pode ser diário faltando. Indícios, não prova.</p>
+      {erro && <p role="alert" className="rounded-xl border border-destructive p-3 text-sm text-destructive">{erro}</p>}
+      {linhas && vis.length === 0 && <p className="rounded-xl border p-5 text-sm text-muted-foreground">Nenhum salto acima da tolerância no período.</p>}
+      {vis.length > 0 && (
+        <div className="overflow-x-auto rounded-xl border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50"><tr>{["Frota", "Situação", "Anterior", "Atual", "Diferença", "Operador (atual)", "Abrir"].map((c) => <th key={c} className="p-2.5 text-left text-xs font-semibold text-muted-foreground">{c}</th>)}</tr></thead>
+            <tbody>
+              {vis.map((x, i) => {
+                const cor = x.tipo === "regressao" ? "#ef4444" : "#f59e0b";
+                return (
+                  <tr key={i} className="border-t">
+                    <td className="p-2.5 font-medium">{x.frota}</td>
+                    <td className="p-2.5"><span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: cor + "22", color: cor }}>{x.tipo === "regressao" ? "Medidor voltou" : "Rodou sem diário"}</span></td>
+                    <td className="p-2.5">{fmt(x.dataAnterior)}: fim {fmtNum(x.finalAnterior)} {un(x)}</td>
+                    <td className="p-2.5">{fmt(x.dataAtual)}: início {fmtNum(x.inicialAtual)} {un(x)}</td>
+                    <td className="p-2.5 font-semibold" style={{ color: cor }}>{x.diferenca > 0 ? "+" : ""}{fmtNum(x.diferenca)} {un(x)}</td>
+                    <td className="p-2.5">{x.operador || "—"}</td>
+                    <td className="p-2.5"><Button variant="link" size="sm" onClick={() => navigate(`/relatorios/equipamento/${encodeURIComponent(x.frota)}`)}>Equip.</Button></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -1,3 +1,5 @@
+import { findMeterGaps, type MeterDiary } from "./equipmentDiaryAudit";
+
 /**
  * Central de Operações — regra ÚNICA de "situação do dia" de equipamentos, pessoas e obras.
  * Funções puras (sem Supabase) para que todas as abas usem os mesmos números.
@@ -285,4 +287,35 @@ export function resumoCentral(eq: EquipamentoSituacao[], pe: PessoaSituacao[], o
     obrasAtivas: ob.length,
     obrasComRdoHoje: ob.filter((o) => o.estado === "rdo_hoje").length,
   };
+}
+
+// ─── Medidores (horímetro / odômetro) ────────────────────────────────────────
+
+export interface SaltoMedidor {
+  frota: string; tipo: "regressao" | "salto"; medidor: "horimetro" | "odometro";
+  dataAnterior: string; dataAtual: string; finalAnterior: number; inicialAtual: number; diferenca: number;
+  operador: string;
+}
+
+/**
+ * Continuidade de medidor por frota (reaproveita findMeterGaps).
+ *  - regressão (diferença < 0): medidor voltou — provável erro de digitação (ex.: zero a mais).
+ *  - salto (diferença > 0): rodou/trabalhou sem diário entre um lançamento e outro.
+ * Tolerâncias evitam ruído de arredondamento (padrão: 5 h de horímetro, 50 km de odômetro).
+ */
+export function saltosMedidor(rows: MeterDiary[], desde: string, tolHoras = 5, tolKm = 50): SaltoMedidor[] {
+  const out: SaltoMedidor[] = [];
+  for (const g of findMeterGaps(rows)) {
+    if (!g.current.date || g.current.date < desde) continue;
+    const km = g.kind === "odometer";
+    if (Math.abs(g.difference) < (km ? tolKm : tolHoras)) continue;
+    out.push({
+      frota: g.current.equipment_fleet, tipo: g.difference < 0 ? "regressao" : "salto", medidor: km ? "odometro" : "horimetro",
+      dataAnterior: g.previous.date, dataAtual: g.current.date,
+      finalAnterior: (km ? g.previous.odometer_final : g.previous.meter_final) as number,
+      inicialAtual: (km ? g.current.odometer_initial : g.current.meter_initial) as number,
+      diferenca: g.difference, operador: g.current.operator_name || "",
+    });
+  }
+  return out.sort((a, b) => b.dataAtual.localeCompare(a.dataAtual) || a.frota.localeCompare(b.frota));
 }

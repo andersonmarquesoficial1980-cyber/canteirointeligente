@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tiposSemDiario, areaExcluida, diffDays, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas, statusOperacaoDe } from "./centralOperacoes";
+import { saltosMedidor, tiposSemDiario, areaExcluida, diffDays, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas, statusOperacaoDe } from "./centralOperacoes";
 
 const HOJE = "2026-11-11";
 const eq = (frota: string, status = "ativo") => ({ id: frota, frota, status });
@@ -114,5 +114,29 @@ describe("centralOperacoes — ruído real de produção", () => {
   it("obra SEM ATIVIDADE não entra no painel", () => {
     const obras = situacaoObras([], [{ data: HOJE, obra_nome: "Sem Atividade", ogs_id: null }, { data: HOJE, obra_nome: "2509", ogs_id: null }], [], new Map(), HOJE);
     expect(obras.map((o) => o.ogs)).toEqual(["2509"]);
+  });
+});
+
+describe("centralOperacoes — medidores", () => {
+  const m = (id: string, fleet: string, date: string, ini: number, fim: number, extra: any = {}) => ({
+    id, equipment_fleet: fleet, date, period: "diurno", status: "enviado", is_auto: false, created_at: date,
+    odometer_initial: ini, odometer_final: fim, meter_initial: null, meter_final: null, operator_name: "Lima", ...extra,
+  });
+  it("detecta regressão (zero a mais) e salto de km, ignora diferença abaixo da tolerância", () => {
+    const rows = [
+      m("1", "CC19", "2026-11-04", 183500, 183560), m("2", "CC19", "2026-11-05", 183560, 1835620), m("3", "CC19", "2026-11-06", 183620, 183700),
+      m("4", "CM1", "2026-11-04", 1000, 1100), m("5", "CM1", "2026-11-06", 1400, 1500),
+      m("6", "CM2", "2026-11-04", 500, 600), m("7", "CM2", "2026-11-05", 620, 700),
+    ];
+    const r = saltosMedidor(rows, "2026-11-01");
+    expect(r.find((x) => x.frota === "CC19")).toMatchObject({ tipo: "regressao", diferenca: 183620 - 1835620 });
+    expect(r.find((x) => x.frota === "CM1")).toMatchObject({ tipo: "salto", diferenca: 300, medidor: "odometro" });
+    expect(r.find((x) => x.frota === "CM2")).toBeUndefined();
+  });
+  it("horímetro usa tolerância em horas e respeita a data inicial", () => {
+    const h = (id: string, date: string, ini: number, fim: number) => ({ ...m(id, "PC1", date, 0, 0), odometer_initial: null, odometer_final: null, meter_initial: ini, meter_final: fim });
+    const r = saltosMedidor([h("a", "2026-11-01", 100, 108), h("b", "2026-11-02", 120, 128)], "2026-11-01");
+    expect(r[0]).toMatchObject({ medidor: "horimetro", tipo: "salto", diferenca: 12 });
+    expect(saltosMedidor([h("a", "2026-11-01", 100, 108), h("b", "2026-11-02", 120, 128)], "2026-11-05")).toHaveLength(0);
   });
 });
