@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { addDaysLocalISO, toSaoPauloISODate } from "@/lib/date-local";
 import { reconcileRdoDiaries, type DiaryDivergence } from "@/lib/rdoDiaryDivergences";
-import { norm, saltosMedidor, type SaltoMedidor } from "@/lib/centralOperacoes";
+import { cruzarTransportes, norm, saltosMedidor, type Cruzamento, type SaltoMedidor, type TipoCruzamento } from "@/lib/centralOperacoes";
 import type { MeterDiary } from "@/lib/equipmentDiaryAudit";
 
 const fmt = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
@@ -190,6 +190,100 @@ export function AbaMedidores({ companyId }: { companyId: string }) {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+
+// ─── Cruzamento Transporte × Diário × RDO ────────────────────────────────────
+const CRUZ_TITULO: Record<TipoCruzamento, string> = {
+  sem_registro_no_destino: "Transportado, sem registro no destino",
+  mudou_de_obra_sem_transporte: "Mudou de obra sem transporte",
+};
+const CRUZ_COR: Record<TipoCruzamento, string> = { sem_registro_no_destino: "#ef4444", mudou_de_obra_sem_transporte: "#f59e0b" };
+
+export function AbaCruzamento({ companyId }: { companyId: string }) {
+  const navigate = useNavigate();
+  const [dias, setDias] = useState(15);
+  const [tipo, setTipo] = useState("todos");
+  const [busca, setBusca] = useState("");
+  const [rows, setRows] = useState<Cruzamento[] | null>(null);
+  const [totais, setTotais] = useState({ transportes: 0, internos: 0 });
+  const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setCarregando(true); setErro("");
+    try {
+      const sb = supabase as any; const hoje = toSaoPauloISODate();
+      const desde = addDaysLocalISO(new Date(`${hoje}T12:00:00`), -dias);
+      const base = addDaysLocalISO(new Date(`${hoje}T12:00:00`), -(dias + 30)); // diários anteriores p/ comparar
+      const [trs, diarios, rdos, ogs] = await Promise.all([
+        readAll<any>((f, t) => sb.from("equipamento_transportes").select("id,equipment_fleet,data,origem_ogs,origem_descricao,destino_ogs,destino_descricao,transportador_nome").eq("company_id", companyId).gte("data", base).order("id").range(f, t)),
+        readAll<any>((f, t) => sb.from("equipment_diaries").select("id,equipment_fleet,date,ogs_number,status,is_auto,meter_initial,meter_final,odometer_initial,odometer_final").eq("company_id", companyId).gte("date", base).order("date").order("id").range(f, t)),
+        readAll<any>((f, t) => sb.from("rdo_diarios").select("id,data,ogs_id,obra_nome,status_validacao").eq("company_id", companyId).gte("data", desde).order("id").range(f, t)),
+        readAll<any>((f, t) => sb.from("ogs_reference").select("id,ogs_number").eq("company_id", companyId).order("id").range(f, t)),
+      ]);
+      const enviados = rdos.filter((r) => norm(r.status_validacao) !== "RASCUNHO");
+      const ogsPorId = new Map(ogs.map((o) => [o.id, o.ogs_number]));
+      const rdoInfo = new Map(enviados.map((r) => [r.id, { data: r.data as string, ogs: (ogsPorId.get(r.ogs_id) || r.obra_nome || "") as string }]));
+      const ids = [...rdoInfo.keys()]; const eqs: any[] = [];
+      for (let i = 0; i < ids.length; i += 100) eqs.push(...await readAll<any>((f, t) => sb.from("rdo_equipamentos").select("id,rdo_id,frota").in("rdo_id", ids.slice(i, i + 100)).order("id").range(f, t)));
+      const rdoEquip = eqs.map((e) => ({ ...rdoInfo.get(e.rdo_id)!, frota: e.frota })).filter((e) => e.data);
+      const num = (v: any) => (v === null || v === undefined || v === "" ? null : Number(v));
+      const trN = trs.map((t) => ({ ...t, meter_no_transporte: null, odometer_no_transporte: null }));
+      const diN = diarios.map((d) => ({ ...d, meter_initial: num(d.meter_initial), meter_final: num(d.meter_final), odometer_initial: num(d.odometer_initial), odometer_final: num(d.odometer_final) }));
+      setRows(cruzarTransportes(trN, diN, rdoEquip, desde, hoje));
+      setTotais({ transportes: trN.filter((t) => t.data >= desde).length, internos: trN.filter((t) => t.data >= desde && /OUTROS/i.test(t.origem_ogs || "") && /OUTROS/i.test(t.destino_ogs || "")).length });
+    } catch (e) { setRows(null); setErro(e instanceof Error ? e.message : "Falha ao cruzar lançamentos."); }
+    setCarregando(false);
+  }, [companyId, dias]);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const q = norm(busca);
+  const vis = (rows || []).filter((r) => (tipo === "todos" || r.tipo === tipo) && (!q || norm(`${r.frota} ${r.obra} ${r.transportador}`).includes(q)));
+  const cont = (t: TipoCruzamento) => (rows || []).filter((r) => r.tipo === t).length;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border p-3">
+        <label className="text-sm">Período
+          <select className="block h-10 rounded-md border bg-background px-3" value={dias} onChange={(e) => setDias(+e.target.value)}>{[7, 15, 30].map((n) => <option key={n} value={n}>últimos {n} dias</option>)}</select></label>
+        <label className="text-sm">Tipo
+          <select className="block h-10 rounded-md border bg-background px-3" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            <option value="todos">Todos ({rows?.length ?? 0})</option>
+            {(Object.keys(CRUZ_TITULO) as TipoCruzamento[]).map((k) => <option key={k} value={k}>{CRUZ_TITULO[k]} ({cont(k)})</option>)}</select></label>
+        <label className="text-sm">Buscar<Input className="w-48" placeholder="frota, obra, motorista" value={busca} onChange={(e) => setBusca(e.target.value)} /></label>
+        <Button variant="outline" size="icon" aria-label="Atualizar aba" onClick={carregar}><RefreshCw className={`h-4 w-4 ${carregando ? "animate-spin" : ""}`} /></Button>
+      </div>
+      <div className="space-y-1 rounded-xl border bg-muted/30 p-3 text-sm">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Como ler esta tela</p>
+        <p>Compara o que o <b>motorista da carreta</b> registrou no transporte com os <b>diários de equipamento</b> e os <b>RDOs</b>. São indícios para conferir, não faltas comprovadas.</p>
+        <ul className="ml-4 list-disc">
+          <li><b>Transportado, sem registro no destino</b> — a carreta levou o equipamento para a obra X, mas não há diário nem RDO dele nessa obra em até 2 dias.</li>
+          <li><b>Mudou de obra sem transporte</b> — o equipamento lançou diário numa obra e depois em outra, sem nenhum transporte registrado entre elas.</li>
+        </ul>
+        <p>Transporte com origem e destino "Outros" (mudança de trecho dentro da mesma obra) <b>não gera alerta</b>{rows ? ` — ${totais.internos} de ${totais.transportes} transportes do período` : ""}.</p>
+      </div>
+      {erro && <p role="alert" className="rounded-xl border border-destructive p-3 text-sm text-destructive">{erro}</p>}
+      {rows && vis.length === 0 && <p className="rounded-xl border p-5 text-sm text-muted-foreground">Nenhuma divergência no período e filtro.</p>}
+      {vis.length > 0 && (
+        <div className="overflow-x-auto rounded-xl border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50"><tr>{["Data", "Frota", "Situação", "Obra", "Motorista da carreta", "Abrir"].map((c) => <th key={c} className="p-2.5 text-left text-xs font-semibold text-muted-foreground">{c}</th>)}</tr></thead>
+            <tbody>
+              {vis.map((r, i) => (
+                <tr key={i} className="border-t align-top">
+                  <td className="whitespace-nowrap p-2.5">{fmt(r.data)}</td><td className="p-2.5 font-medium">{r.frota}</td>
+                  <td className="p-2.5"><span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: CRUZ_COR[r.tipo] + "22", color: CRUZ_COR[r.tipo] }}>{CRUZ_TITULO[r.tipo]}</span><p className="mt-1 text-xs text-muted-foreground">{r.detalhe}</p></td>
+                  <td className="p-2.5">{r.obra || "—"}</td><td className="p-2.5">{r.transportador || "—"}</td>
+                  <td className="p-2.5"><Button variant="link" size="sm" onClick={() => navigate(`/relatorios/equipamento/${encodeURIComponent(r.frota)}`)}>Equip.</Button></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

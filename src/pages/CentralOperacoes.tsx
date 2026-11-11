@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { addDaysLocalISO, toSaoPauloISODate } from "@/lib/date-local";
-import { AbaDivergencias, AbaMedidores } from "@/components/relatorios/CentralOperacoesAbas";
+import { AbaCruzamento, AbaDivergencias, AbaMedidores } from "@/components/relatorios/CentralOperacoesAbas";
 import {
   agruparPorLocal, FONTE_LABEL, norm, ogsKey, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas,
   type DiarioLite, type EmployeeBase, type EquipamentoBase, type EquipamentoSituacao, type OgsLite,
@@ -23,7 +23,7 @@ const JANELA_DIAS = 30;
 const TABS = [
   { id: "hoje", label: "Hoje" }, { id: "equipamentos", label: "Equipamentos" },
   { id: "pessoas", label: "Pessoas" }, { id: "obras", label: "Obras" },
-  { id: "divergencias", label: "Divergências RDO × Diário" }, { id: "medidores", label: "Horímetro / Odômetro" },
+  { id: "divergencias", label: "Divergências RDO × Diário" }, { id: "medidores", label: "Horímetro / Odômetro" }, { id: "cruzamento", label: "Cruzamento de lançamentos" },
 ] as const;
 const ABAS_TV: TabId[] = ["hoje", "equipamentos", "pessoas", "obras"]; // abas sob demanda não entram na rotação da TV
 type TabId = (typeof TABS)[number]["id"];
@@ -436,6 +436,7 @@ export default function CentralOperacoes() {
         {aba === "divergencias" && profile?.company_id && <AbaDivergencias companyId={profile.company_id} />}
 
         {aba === "medidores" && profile?.company_id && <AbaMedidores companyId={profile.company_id} />}
+        {aba === "cruzamento" && profile?.company_id && <AbaCruzamento companyId={profile.company_id} />}
 
         {aba === "obras" && (
           <Tabela cols={["Obra", "OGS", "Cliente", "RDO hoje", "Último RDO", "Equipamentos hoje", "Pessoas hoje", "Situação"]} vazio="Nenhuma obra com RDO nos últimos 14 dias.">

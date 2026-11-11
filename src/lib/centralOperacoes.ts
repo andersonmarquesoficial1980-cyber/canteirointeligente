@@ -349,3 +349,79 @@ export function agruparPorLocal(eq: EquipamentoSituacao[]): GrupoLocal[] {
   const ordem = (g: GrupoLocal) => (g.chave.startsWith("OGS") ? 0 : g.chave === "Sem localização" ? 2 : 1);
   return [...m.values()].sort((a, b) => ordem(a) - ordem(b) || b.itens.length - a.itens.length);
 }
+
+// ─── Cruzamento Transporte × Diário × RDO ────────────────────────────────────
+
+export interface TransporteCompleto {
+  id: string; equipment_fleet: string; data: string;
+  origem_ogs: string | null; origem_descricao: string | null; destino_ogs: string | null; destino_descricao: string | null;
+  transportador_nome: string | null; meter_no_transporte: number | null; odometer_no_transporte: number | null;
+}
+export interface DiarioCruz { equipment_fleet: string | null; date: string | null; ogs_number: string | null; status: string | null; is_auto?: boolean | null;
+  meter_initial?: number | null; meter_final?: number | null; odometer_initial?: number | null; odometer_final?: number | null }
+/** Equipamento citado em RDO enviado: data + OGS do RDO + frota. */
+export interface RdoEquipCruz { data: string; ogs: string; frota: string }
+
+export type TipoCruzamento = "sem_registro_no_destino" | "mudou_de_obra_sem_transporte";
+export interface Cruzamento {
+  tipo: TipoCruzamento; frota: string; data: string; detalhe: string; obra: string; transportador: string;
+}
+
+/** OGS "de verdade": '__OUTROS__', vazio e base/pátio não são obra. */
+export const ogsReal = (v: string | null | undefined): string => {
+  const k = ogsKey(v);
+  return !k || /^0+$/.test(k) || k.startsWith("__OUTROS") || /^BASE|PATIO/.test(k) ? "" : k;
+};
+const addDia = (iso: string, n: number) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10) + n)).toISOString().slice(0, 10);
+const num = (v: number | null | undefined) => (v === null || v === undefined || Number.isNaN(v) ? null : v);
+
+/**
+ * Regras (validadas com o Anderson):
+ *  - __OUTROS__ nos dois lados = movimentação interna da obra (não é troca de obra, não cobra nada).
+ *  - Destino com OGS diferente da origem: exige diário OU RDO do equipamento nessa OGS de D a D+2.
+ *  - Equipamento aparece em OGS diferente da anterior (diário × diário) sem transporte no intervalo.
+ *  - Medidor do transporte NÃO é cruzado: nos dados reais o campo repete o mesmo valor em equipamentos diferentes.
+ */
+export function cruzarTransportes(
+  transportes: TransporteCompleto[], diarios: DiarioCruz[], rdoEquip: RdoEquipCruz[], desde: string, hoje: string,
+  tolKm = 50, tolHoras = 5,
+): Cruzamento[] {
+  const out: Cruzamento[] = [];
+  const dia = diarios.filter((d) => d.date && norm(d.status) === "ENVIADO" && d.is_auto !== true)
+    .map((d) => ({ ...d, f: fleetKey(d.equipment_fleet), o: ogsReal(d.ogs_number), date: d.date! }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const porFrota = new Map<string, typeof dia>();
+  for (const d of dia) (porFrota.get(d.f) || porFrota.set(d.f, []).get(d.f)!).push(d);
+  const rdoSet = new Set(rdoEquip.map((r) => `${fleetKey(r.frota)}|${r.data}|${ogsReal(r.ogs)}`));
+  const trPorFrota = new Map<string, TransporteCompleto[]>();
+  for (const t of transportes) (trPorFrota.get(fleetKey(t.equipment_fleet)) || trPorFrota.set(fleetKey(t.equipment_fleet), []).get(fleetKey(t.equipment_fleet))!).push(t);
+
+  for (const t of transportes) {
+    if (t.data < desde) continue;
+    const f = fleetKey(t.equipment_fleet);
+    const origem = ogsReal(t.origem_ogs), destino = ogsReal(t.destino_ogs);
+    const base = { frota: t.equipment_fleet, data: t.data, transportador: t.transportador_nome || "" };
+
+    // 1) transportado para outra obra e nada confirma que chegou
+    if (destino && destino !== origem && diffDays(t.data, hoje) >= 2) {
+      const confirma = [0, 1, 2].some((k) => {
+        const d = addDia(t.data, k);
+        return (porFrota.get(f) || []).some((x) => x.date === d && x.o === destino) || rdoSet.has(`${f}|${d}|${destino}`);
+      });
+      if (!confirma) out.push({ ...base, tipo: "sem_registro_no_destino", obra: destino, detalhe: `Transportado para a OGS ${destino}${t.destino_descricao ? ` (${t.destino_descricao.trim()})` : ""}, mas não há diário nem RDO dele nessa obra em até 2 dias.` });
+    }
+
+  }
+
+  // 2) mudou de obra entre dois diários sem nenhum transporte no intervalo
+  for (const [f, lista] of porFrota) {
+    const trs = trPorFrota.get(f) || [];
+    for (let i = 1; i < lista.length; i++) {
+      const a = lista[i - 1], b = lista[i];
+      if (b.date < desde || !a.o || !b.o || a.o === b.o) continue;
+      if (trs.some((t) => t.data >= addDia(a.date, -1) && t.data <= addDia(b.date, 1))) continue;
+      out.push({ tipo: "mudou_de_obra_sem_transporte", frota: b.equipment_fleet || f, data: b.date, obra: b.o, transportador: "", detalhe: `Diário em ${a.o} (${a.date.split("-").reverse().join("/")}) e depois em ${b.o}, sem transporte registrado entre eles.` });
+    }
+  }
+  return out.sort((x, y) => y.data.localeCompare(x.data) || x.frota.localeCompare(y.frota));
+}

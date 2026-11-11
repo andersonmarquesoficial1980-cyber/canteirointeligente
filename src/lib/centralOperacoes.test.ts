@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agruparPorLocal, saltosMedidor, tiposSemDiario, areaExcluida, diffDays, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas, statusOperacaoDe } from "./centralOperacoes";
+import { cruzarTransportes, ogsReal, agruparPorLocal, saltosMedidor, tiposSemDiario, areaExcluida, diffDays, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas, statusOperacaoDe } from "./centralOperacoes";
 
 const HOJE = "2026-11-11";
 const eq = (frota: string, status = "ativo") => ({ id: frota, frota, status });
@@ -182,4 +182,28 @@ describe("centralOperacoes — presença por qualquer lançamento", () => {
   it("função administrativa não entra", () => {
     expect(situacaoPessoas([emp("x", "Z", "ASSISTENTE ADMINISTRATIVO")], [], HOJE)).toHaveLength(0);
   });
+});
+
+describe("centralOperacoes — cruzamento transporte", () => {
+  const tr = (o: any = {}) => ({ id: "t", equipment_fleet: "FA20", data: "2026-11-05", origem_ogs: "2539", origem_descricao: "", destino_ogs: "2529", destino_descricao: "", transportador_nome: "Heleno", meter_no_transporte: null, odometer_no_transporte: null, ...o });
+  const dc = (date: string, ogs: string, o: any = {}) => ({ equipment_fleet: "FA20", date, ogs_number: ogs, status: "enviado", is_auto: false, ...o });
+  it("__OUTROS__ não é obra", () => { expect(ogsReal("__OUTROS__")).toBe(""); expect(ogsReal("BASE / PÁTIO CENTRAL")).toBe(""); expect(ogsReal("OGS 2539")).toBe("2539"); });
+  it("movimento interno (__OUTROS__ dos dois lados) e transporte confirmado não alertam", () => {
+    expect(cruzarTransportes([tr({ origem_ogs: "__OUTROS__", destino_ogs: "__OUTROS__" })], [], [], "2026-11-01", HOJE)).toHaveLength(0);
+    expect(cruzarTransportes([tr()], [dc("2026-11-06", "2529")], [], "2026-11-01", HOJE)).toHaveLength(0);
+    expect(cruzarTransportes([tr()], [], [{ data: "2026-11-05", ogs: "2529", frota: "FA20" }], "2026-11-01", HOJE)).toHaveLength(0);
+  });
+  it("destino sem diário nem RDO em até 2 dias alerta; destino __OUTROS__ com origem real não", () => {
+    expect(cruzarTransportes([tr()], [dc("2026-11-06", "2539")], [], "2026-11-01", HOJE).map((c) => c.tipo)).toContain("sem_registro_no_destino");
+    expect(cruzarTransportes([tr({ destino_ogs: "__OUTROS__" })], [], [], "2026-11-01", HOJE)).toHaveLength(0);
+  });
+  it("não cobra transporte muito recente (menos de 2 dias)", () => {
+    expect(cruzarTransportes([tr({ data: "2026-11-10" })], [], [], "2026-11-01", HOJE)).toHaveLength(0);
+  });
+  it("mudou de obra entre diários sem transporte alerta; com transporte no intervalo não", () => {
+    const d = [dc("2026-11-02", "2539"), dc("2026-11-04", "2529")];
+    expect(cruzarTransportes([], d, [], "2026-11-01", HOJE)[0]).toMatchObject({ tipo: "mudou_de_obra_sem_transporte", obra: "2529" });
+    expect(cruzarTransportes([tr({ data: "2026-11-03" })], d, [], "2026-11-01", HOJE).map((c) => c.tipo)).not.toContain("mudou_de_obra_sem_transporte");
+  });
+  it("OGS 000 não é obra", () => { expect(ogsReal("000")).toBe(""); });
 });
