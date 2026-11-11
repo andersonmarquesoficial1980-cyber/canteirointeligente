@@ -139,6 +139,7 @@ import EngRdoTecnicoDetalhe from "./pages/EngRdoTecnicoDetalhe";
 import EngRdoTecnicoEditar from "./pages/EngRdoTecnicoEditar";
 import WFDashboards from "./pages/WFDashboards";
 import DashboardObras from "./pages/DashboardObras";
+import CentralOperacoes from "./pages/CentralOperacoes";
 import DashboardManutencao from "./pages/DashboardManutencao";
 import DashboardFrota from "./pages/DashboardFrota";
 import OrcamentosHome from "./pages/OrcamentosHome";
@@ -439,6 +440,7 @@ function AppRoutes() {
         {/* Alias para compatibilidade */}
         <Route path="/relatorios/equipamento/:fleet" element={<RelatorioEquipamento />} />
         <Route path="/dashboard" element={<RequireAdminOrSuperAdmin><DashboardAdmin /></RequireAdminOrSuperAdmin>} />
+        <Route path="/relatorios/central-operacoes" element={<RequireModule moduleId="relatorios"><CentralOperacoes /></RequireModule>} />
         {/* Dashboards Obras (novo hub em WF Relatórios) */}
         <Route path="/relatorios/dashboards-obras" element={<RequireModule moduleId="relatorios"><WFDashboards /></RequireModule>} />
         <Route path="/relatorios/dashboards-obras/obras" element={<RequireModule moduleId="relatorios"><DashboardObras /></RequireModule>} />

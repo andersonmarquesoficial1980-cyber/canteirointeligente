@@ -34,6 +34,7 @@ const TIPOS_RELATORIO = [
   { id: "divergencias_rdo_diarios", label: "Divergências RDO × Diários", icon: ScanSearch, desc: "Conferir equipamentos e operadores por data ou período" },
   { id: "rdo_tecnico_dashboard", label: "Dashboard RDO Técnico — Obra", icon: LayoutDashboard, desc: "O que aconteceu na obra: dias trabalhados, produção, motivos de não produção, clima, usina" },
   { id: "rdo_tecnico_controle", label: "Controle de Preenchimento RDO Técnico", icon: ListChecks, desc: "Quem lançou ou não o RDO e fila de validações dos apontadores" },
+  { id: "central_operacoes", label: "Central de Operações", icon: LayoutDashboard, desc: "Equipamentos, pessoas e obras em tempo real: quem está sem diário/RDO, onde e em qual status (modo TV)" },
   { id: "dashboards_obras", label: "Dashboards Obras", icon: Monitor, desc: "Hub único com todos os dashboards operacionais de Obras" },
 ];
 
@@ -416,6 +417,7 @@ export default function RelatoriosHome() {
                   if (t.id === "divergencias_rdo_diarios") { navigate(withReturnTo(`/relatorios/divergencias-rdo-diarios${origemQueryPrefix}`)); return; }
                   if (t.id === "rdo_tecnico_controle") { navigate(withReturnTo(`/relatorios/rdo-tecnico-controle${origemQueryPrefix}`)); return; }
                   if (t.id === "rdo_tecnico_dashboard") { navigate(withReturnTo(`/relatorios/rdo-tecnico-dashboard${origemQueryPrefix}`)); return; }
+                  if (t.id === "central_operacoes") { navigate(withReturnTo(`/relatorios/central-operacoes${origemQueryPrefix}`)); return; }
                   if (t.id === "dashboards_obras") { navigate(withReturnTo(`/relatorios/dashboards-obras${origemQueryPrefix}`)); return; }
                   if (t.id === "abastecimento") {
                     const hoje = toLocalISODate();
