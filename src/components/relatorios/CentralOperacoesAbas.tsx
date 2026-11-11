@@ -39,61 +39,6 @@ function Barra({ data, setData, carregando, onAtualizar, children }: { data: str
   );
 }
 
-// ─── Pendências do Programador ───────────────────────────────────────────────
-interface Pendencia { employee_id: string; nome: string; matricula: string | null; funcao: string | null; equipe: string | null; ultima_ogs: string | null; ultima_data: string | null; ultima_equipe_rdo: string | null }
-
-export function AbaPendenciasProgramador({ companyId }: { companyId: string }) {
-  const navigate = useNavigate();
-  const [data, setData] = useState(ontemSP());
-  const [rows, setRows] = useState<Pendencia[] | null>(null);
-  const [erro, setErro] = useState("");
-  const [carregando, setCarregando] = useState(false);
-
-  const carregar = useCallback(async () => {
-    setCarregando(true); setErro("");
-    const { data: res, error } = await (supabase as any).rpc("programador_pendencias", { p_company_id: companyId, p_data: data });
-    if (error) { setRows(null); setErro(/Sem acesso/i.test(error.message) ? "Seu usuário não tem acesso ao WF Programador nesta empresa." : error.message); }
-    else setRows(res || []);
-    setCarregando(false);
-  }, [companyId, data]);
-  useEffect(() => { carregar(); }, [carregar]);
-
-  const porEquipe = useMemo(() => {
-    const m = new Map<string, Pendencia[]>();
-    for (const r of rows || []) (m.get(r.equipe || "Sem equipe") || m.set(r.equipe || "Sem equipe", []).get(r.equipe || "Sem equipe")!).push(r);
-    return [...m].sort((a, b) => b[1].length - a[1].length);
-  }, [rows]);
-
-  return (
-    <section className="space-y-3">
-      <Barra data={data} setData={setData} carregando={carregando} onAtualizar={carregar}>
-        <Button onClick={() => navigate("/programador/pendencias")}>Alocar no WF Programador →</Button>
-      </Barra>
-      <p className="text-xs text-muted-foreground">Funcionários próprios ativos que <b>não aparecem em nenhum RDO</b> do dia e <b>não foram alocados</b> pelo Programador. É a mesma lista da tela de Pendências do Programador; a alocação continua sendo feita lá.</p>
-      {erro && <p role="alert" className="rounded-xl border border-destructive p-3 text-sm text-destructive">{erro}</p>}
-      {rows && <p className="text-sm"><b>{rows.length}</b> pendência(s) em {fmt(data)}.</p>}
-      {rows && rows.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-2">
-          {porEquipe.map(([equipe, lista]) => (
-            <div key={equipe} className="rounded-xl border bg-card p-3">
-              <h3 className="mb-2 flex justify-between text-sm font-semibold"><span>{equipe}</span><span>{lista.length}</span></h3>
-              <ul className="space-y-1 text-sm">
-                {lista.map((p) => (
-                  <li key={p.employee_id} className="flex justify-between gap-2 border-t pt-1">
-                    <span>{p.nome}{p.funcao ? <span className="text-muted-foreground"> · {p.funcao}</span> : null}</span>
-                    <span className="whitespace-nowrap text-xs text-muted-foreground">{p.ultima_ogs ? `últ. ${p.ultima_ogs} (${fmt(p.ultima_data)})` : "sem RDO em 30d"}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      )}
-      {rows && rows.length === 0 && <p className="rounded-xl border p-5 text-sm text-muted-foreground">Nenhuma pendência neste dia.</p>}
-    </section>
-  );
-}
-
 // ─── Divergências RDO × Diário ───────────────────────────────────────────────
 const TITULOS: Record<DiaryDivergence["kind"], string> = {
   diario_sem_rdo: "Diário sem RDO", diario_sem_equipamento: "Equipamento do diário fora do RDO",

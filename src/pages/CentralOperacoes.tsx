@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { addDaysLocalISO, toSaoPauloISODate } from "@/lib/date-local";
-import { AbaDivergencias, AbaMedidores, AbaPendenciasProgramador } from "@/components/relatorios/CentralOperacoesAbas";
+import { AbaDivergencias, AbaMedidores } from "@/components/relatorios/CentralOperacoesAbas";
 import {
   agruparPorLocal, FONTE_LABEL, norm, ogsKey, resumoCentral, situacaoEquipamentos, situacaoObras, situacaoPessoas,
   type DiarioLite, type EmployeeBase, type EquipamentoBase, type EquipamentoSituacao, type OgsLite,
@@ -23,7 +23,7 @@ const JANELA_DIAS = 30;
 const TABS = [
   { id: "hoje", label: "Hoje" }, { id: "equipamentos", label: "Equipamentos" },
   { id: "pessoas", label: "Pessoas" }, { id: "obras", label: "Obras" },
-  { id: "pendencias", label: "Pendências do Programador" }, { id: "divergencias", label: "Divergências RDO × Diário" }, { id: "medidores", label: "Horímetro / Odômetro" },
+  { id: "divergencias", label: "Divergências RDO × Diário" }, { id: "medidores", label: "Horímetro / Odômetro" },
 ] as const;
 const ABAS_TV: TabId[] = ["hoje", "equipamentos", "pessoas", "obras"]; // abas sob demanda não entram na rotação da TV
 type TabId = (typeof TABS)[number]["id"];
@@ -112,6 +112,7 @@ export default function CentralOperacoes() {
   const [soAlertas, setSoAlertas] = useState(true);
   const [incluirAdm, setIncluirAdm] = useState(false);
   const [porObra, setPorObra] = useState(false);
+  const [porEquipe, setPorEquipe] = useState(true);
   const [mostrarIsentos, setMostrarIsentos] = useState(false);
   const [tv, setTv] = useState(false);
   const [pausado, setPausado] = useState(false);
@@ -400,14 +401,38 @@ export default function CentralOperacoes() {
             <p>"Sem nenhum registro há N dias" = a pessoa apareceu nos últimos {JANELA_DIAS} dias mas <b>não aparece em nenhum desses lugares há N dias ou mais</b>. Pode ser férias, afastamento ou lançamento esquecido. Ajudantes e administrativos não são cobrados (nem todos são citados em RDO ou lançam diário). Quem não aparece em nada nos {JANELA_DIAS} dias fica como "Sem registro" (provavelmente não é de campo).</p>
           </Ajuda>
           <p className="text-xs text-muted-foreground">{peVis.length} pessoa(s).</p>
-          <Tabela cols={["Nome", "Função", "Equipe", "Último registro", "Situação"]} vazio="Nenhuma pessoa para os filtros.">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="outline" onClick={() => setPorEquipe((v) => !v)}>{porEquipe ? "Ver em lista única" : "Agrupar por equipe"}</Button>
+            {peVis.some((p) => p.estado === "atrasado") && <Button onClick={() => navigate("/programador/pendencias")}>Alocar pendentes no WF Programador →</Button>}
+          </div>
+          {peVis.length === 0 && <p className="rounded-xl border p-5 text-sm text-muted-foreground">Nenhuma pessoa para os filtros.</p>}
+          {peVis.length > 0 && !porEquipe && (
+          <Tabela cols={["Nome", "Função", "Equipe", "Último registro", "Situação"]} vazio="">
             {peVis.map((p) => <tr key={p.id} className="border-t">
               <td className="p-2.5 font-medium">{p.nome}</td><td className="p-2.5">{p.funcao || "—"}</td><td className="p-2.5">{p.equipe || "—"}</td>
               <td className="p-2.5">{ultimoReg(p)}{p.ultimaObra ? <span className="text-muted-foreground"> · {p.ultimaObra}</span> : null}</td><td className="p-2.5">{estadoPe(p)}</td></tr>)}
           </Tabela>
+          )}
+          {peVis.length > 0 && porEquipe && (
+            <div className="grid gap-3 md:grid-cols-2">
+              {Object.entries(peVis.reduce<Record<string, PessoaSituacao[]>>((m, p) => { (m[p.equipe || "Sem equipe"] ||= []).push(p); return m; }, {}))
+                .sort((a, b) => b[1].length - a[1].length).map(([eq, lista]) => (
+                <div key={eq} className="rounded-xl border bg-card p-3">
+                  <h3 className="mb-2 flex justify-between text-sm font-semibold"><span>{eq}</span><span>{lista.length}</span></h3>
+                  <ul className="space-y-1 text-sm">
+                    {lista.map((p) => (
+                      <li key={p.id} className="flex justify-between gap-2 border-t pt-1">
+                        <span>{p.nome}<span className="text-muted-foreground"> · {p.funcao}</span></span>
+                        <span className="whitespace-nowrap text-xs">{estadoPe(p)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
         </>}
 
-        {aba === "pendencias" && profile?.company_id && <AbaPendenciasProgramador companyId={profile.company_id} />}
         {aba === "divergencias" && profile?.company_id && <AbaDivergencias companyId={profile.company_id} />}
 
         {aba === "medidores" && profile?.company_id && <AbaMedidores companyId={profile.company_id} />}
