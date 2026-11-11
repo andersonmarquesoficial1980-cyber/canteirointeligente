@@ -212,7 +212,7 @@ export function situacaoPessoas(
     if ((e.origem || "PROPRIO") !== "PROPRIO" || (e.status || "ativo") !== "ativo") continue;
     if (e.data_demissao && e.data_demissao < hoje) continue;
     if (e.data_admissao && /^\d{4}-\d{2}-\d{2}/.test(e.data_admissao) && e.data_admissao.slice(0, 10) > hoje) continue;
-    if (!incluirAreasExcluidas && (areaExcluida(e.equipe, e.centro_custo) || /ADMINISTRATIV/.test(norm(e.role)))) continue;
+    if (!incluirAreasExcluidas && (areaExcluida(e.equipe, e.centro_custo) || /ADMINISTRATIV|AJUDANTE/.test(norm(e.role)))) continue; // ajudantes nem sempre são citados em RDO nem lançam diário
     const a = porId.get(e.id); const b = porNome.get(norm(e.name));
     const fontes: Partial<Record<FontePresenca, string>> = {};
     for (const acc of [a, b]) for (const [f, d] of Object.entries(acc?.fontes || {})) if (!fontes[f as FontePresenca] || d! > fontes[f as FontePresenca]!) fontes[f as FontePresenca] = d;

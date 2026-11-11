@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, Maximize2, Minimize2, RefreshCw, Search } from "lucide-react";
+import { ArrowLeft, Download, Maximize2, Minimize2, Pause, Play, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -114,6 +114,8 @@ export default function CentralOperacoes() {
   const [porObra, setPorObra] = useState(false);
   const [mostrarIsentos, setMostrarIsentos] = useState(false);
   const [tv, setTv] = useState(false);
+  const [pausado, setPausado] = useState(false);
+  const [soManut, setSoManut] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
 
   const carregar = useCallback(async () => {
@@ -184,9 +186,15 @@ export default function CentralOperacoes() {
 
   // Modo TV: rotaciona as abas a cada 20s.
   useEffect(() => {
-    if (!tv) return;
+    if (!tv || pausado) return;
     const t = setInterval(() => setAba((a) => ABAS_TV[(Math.max(0, ABAS_TV.indexOf(a)) + 1) % ABAS_TV.length]), 20_000);
     return () => clearInterval(t);
+  }, [tv, pausado]);
+  useEffect(() => {
+    if (!tv) return;
+    const onKey = (e: KeyboardEvent) => { if (e.code === "Space" && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); setPausado((p) => !p); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [tv]);
   useEffect(() => {
     const onFs = () => { if (!document.fullscreenElement) setTv(false); };
@@ -194,7 +202,7 @@ export default function CentralOperacoes() {
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
   const alternarTv = () => {
-    if (!tv) { setTv(true); setSoAlertas(true); raiz.current?.requestFullscreen?.().catch(() => {}); }
+    if (!tv) { setTv(true); setPausado(false); setSoManut(false); setSoAlertas(true); raiz.current?.requestFullscreen?.().catch(() => {}); }
     else { setTv(false); if (document.fullscreenElement) document.exitFullscreen?.(); }
   };
 
@@ -213,7 +221,8 @@ export default function CentralOperacoes() {
   const eqVis = equipamentos
     .filter((e) => e.statusCadastro !== "DEVOLVIDO")
     .filter((e) => mostrarIsentos || e.estado !== "isento" || e.statusCadastro === "MANUTENÇÃO" || e.statusCadastro === "INOPERANTE")
-    .filter((e) => !soAlertas || e.estado === "atrasado" || e.estado === "nunca")
+    .filter((e) => !soManut || e.statusCadastro === "MANUTENÇÃO" || e.statusCadastro === "INOPERANTE")
+    .filter((e) => soManut || !soAlertas || e.estado === "atrasado" || e.estado === "nunca")
     .filter((e) => !q || norm([e.frota, e.nome, e.tipo, e.ogs, e.local, e.operador].join(" ")).includes(q))
     .sort((a, b) => (b.diasSemDiario ?? 9999) - (a.diasSemDiario ?? 9999) || a.frota.localeCompare(b.frota));
   const peVis = pessoas
@@ -256,6 +265,7 @@ export default function CentralOperacoes() {
           </p>
         </div>
         <Button variant="outline" size="icon" aria-label="Atualizar" onClick={carregar}><RefreshCw className={`h-4 w-4 ${carregando ? "animate-spin" : ""}`} /></Button>
+        {tv && <Button variant="outline" onClick={() => setPausado((p) => !p)} aria-label={pausado ? "Retomar rotação" : "Pausar rotação"}>{pausado ? <Play className="mr-2 h-4 w-4" /> : <Pause className="mr-2 h-4 w-4" />}{pausado ? "Retomar" : "Pausar"}</Button>}
         <Button onClick={alternarTv}>{tv ? <Minimize2 className="mr-2 h-4 w-4" /> : <Maximize2 className="mr-2 h-4 w-4" />}{tv ? "Sair da TV" : "TV"}</Button>
       </header>
 
@@ -276,7 +286,7 @@ export default function CentralOperacoes() {
           <KpiCard valor={`${resumo.pessoasComRdoHoje}/${resumo.pessoasMonitoradas}`} rotulo="Pessoas com algum registro hoje" tom="green" onClick={() => { setAba("pessoas"); setSoAlertas(false); }} />
           <KpiCard valor={resumo.pessoasAtrasadas} rotulo={`Pessoas sem nenhum registro há ${limitePe}+ dias`} tom={resumo.pessoasAtrasadas ? "yellow" : "green"} onClick={() => { setAba("pessoas"); setSoAlertas(true); }} />
           <KpiCard valor={`${resumo.obrasComRdoHoje}/${resumo.obrasAtivas}`} rotulo="Obras com RDO hoje" onClick={() => setAba("obras")} />
-          <KpiCard valor={resumo.emManutencao} rotulo="Em manutenção / inoperantes" tom={resumo.emManutencao ? "yellow" : "green"} />
+          <KpiCard valor={resumo.emManutencao} rotulo="Em manutenção / inoperantes" tom={resumo.emManutencao ? "yellow" : "green"} onClick={() => { setAba("equipamentos"); setSoManut(true); setSoAlertas(false); }} />
         </section>
 
         {aba === "hoje" && new Date().getHours() < 16 && (
@@ -332,10 +342,11 @@ export default function CentralOperacoes() {
               <select className="block h-10 rounded-md border bg-background px-3" value={aba === "pessoas" ? limitePe : limiteEq} onChange={(e) => (aba === "pessoas" ? setLimitePe : setLimiteEq)(+e.target.value)}>
                 {[1, 2, 3, 4, 5, 7, 10].map((n) => <option key={n} value={n}>{n} dia{n > 1 ? "s" : ""} sem lançamento</option>)}
               </select></label>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={soAlertas} onChange={(e) => setSoAlertas(e.target.checked)} />Só pendências</label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={soAlertas} onChange={(e) => { setSoAlertas(e.target.checked); if (e.target.checked) setSoManut(false); }} />Só pendências</label>
+            {aba === "equipamentos" && soManut && <button type="button" className="rounded-full border border-amber-500 bg-amber-500/10 px-3 py-1 text-xs font-semibold" onClick={() => setSoManut(false)}>Só manutenção / inoperantes ✕</button>}
             {aba === "equipamentos" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={mostrarIsentos} onChange={(e) => setMostrarIsentos(e.target.checked)} />Mostrar também os que não lançam diário</label>}
             {aba === "equipamentos" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={porObra} onChange={(e) => setPorObra(e.target.checked)} />Agrupar por obra</label>}
-            {aba === "pessoas" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={incluirAdm} onChange={(e) => setIncluirAdm(e.target.checked)} />Incluir áreas administrativas</label>}
+            {aba === "pessoas" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={incluirAdm} onChange={(e) => setIncluirAdm(e.target.checked)} />Incluir administrativos e ajudantes</label>}
             <Button variant="outline" onClick={() => aba === "equipamentos"
               ? exportarCsv("equipamentos", ["Frota", "Tipo", "Equipe", "Cadastro", "Situação", "OGS", "Local", "Operador", "Último diário", "Dias sem diário"], eqVis.map((e) => [e.frota, e.tipo, e.equipe, e.statusCadastro, STATUS_LABEL[e.statusOperacao], e.ogs, e.local, e.operador, fmtData(e.ultimoDiario), e.diasSemDiario ?? "nunca"]))
               : exportarCsv("pessoas", ["Nome", "Matrícula", "Função", "Equipe", "Último registro", "Fonte", "Dias sem registro"], peVis.map((p) => [p.nome, p.matricula, p.funcao, p.equipe, fmtData(p.ultimaData), p.ultimaFonte ? FONTE_LABEL[p.ultimaFonte] : "", p.diasSemRegistro ?? "nunca"]))}>
@@ -386,7 +397,7 @@ export default function CentralOperacoes() {
               <li><b>RDO Técnico</b> — engenheiros.</li>
               <li><b>Alocado no Programador</b> — folga, férias, atestado, base ou obra.</li>
             </ul>
-            <p>"Sem nenhum registro há N dias" = a pessoa apareceu nos últimos {JANELA_DIAS} dias mas <b>não aparece em nenhum desses lugares há N dias ou mais</b>. Pode ser férias, afastamento ou lançamento esquecido. Quem não aparece em nada nos {JANELA_DIAS} dias fica como "Sem registro" (provavelmente não é de campo).</p>
+            <p>"Sem nenhum registro há N dias" = a pessoa apareceu nos últimos {JANELA_DIAS} dias mas <b>não aparece em nenhum desses lugares há N dias ou mais</b>. Pode ser férias, afastamento ou lançamento esquecido. Ajudantes e administrativos não são cobrados (nem todos são citados em RDO ou lançam diário). Quem não aparece em nada nos {JANELA_DIAS} dias fica como "Sem registro" (provavelmente não é de campo).</p>
           </Ajuda>
           <p className="text-xs text-muted-foreground">{peVis.length} pessoa(s).</p>
           <Tabela cols={["Nome", "Função", "Equipe", "Último registro", "Situação"]} vazio="Nenhuma pessoa para os filtros.">

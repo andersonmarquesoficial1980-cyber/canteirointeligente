@@ -155,7 +155,7 @@ describe("centralOperacoes — onde estão", () => {
 });
 
 describe("centralOperacoes — presença por qualquer lançamento", () => {
-  const emp = (id: string, name: string, role = "AJUDANTE") => ({ id, name, role, origem: "PROPRIO", status: "ativo", equipe: "ASFALTO 1" });
+  const emp = (id: string, name: string, role = "RASTELEIRO") => ({ id, name, role, origem: "PROPRIO", status: "ativo", equipe: "ASFALTO 1" });
   it("motorista que lança diário de equipamento NÃO é cobrado por RDO (caso Heleno)", () => {
     const r = situacaoPessoas(
       [emp("h", "Heleno Chaves", "MOTORISTA DE CARRETA")],
@@ -174,6 +174,10 @@ describe("centralOperacoes — presença por qualquer lançamento", () => {
     expect(rows.find((r) => r.id === "a")).toMatchObject({ estado: "atrasado", diasSemRegistro: 10 });
     expect(rows.find((r) => r.id === "b")!.estado).toBe("ok_hoje");
     expect(rows.find((r) => r.id === "c")!.estado).toBe("sem_historico");
+  });
+  it("ajudante não é cobrado (nem sempre aparece em RDO ou diário)", () => {
+    expect(situacaoPessoas([emp("j", "Jason", "AJUDANTE GERAL")], [], HOJE)).toHaveLength(0);
+    expect(situacaoPessoas([emp("j", "Jason", "AJUDANTE GERAL")], [], HOJE, 4, true)).toHaveLength(1);
   });
   it("função administrativa não entra", () => {
     expect(situacaoPessoas([emp("x", "Z", "ASSISTENTE ADMINISTRATIVO")], [], HOJE)).toHaveLength(0);
