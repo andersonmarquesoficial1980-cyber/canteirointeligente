@@ -4,6 +4,7 @@
  * Design: Dark theme para TV.
  */
 import { useEffect, useState, useCallback } from "react";
+import { toSaoPauloISODate } from "@/lib/date-local";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -55,8 +56,8 @@ export default function DashboardFrota() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const hoje = new Date().toISOString().split("T")[0];
-    const trinta = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+    const hoje = toSaoPauloISODate();
+    const trinta = toSaoPauloISODate(new Date(Date.now() - 30 * 86400000));
 
     const [
       { data: diariosHoje },

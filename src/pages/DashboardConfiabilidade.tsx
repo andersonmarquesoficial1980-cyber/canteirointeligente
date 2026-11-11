@@ -5,6 +5,7 @@
  * Layout TV: KPIs no cabeçalho, filtros e gráfico à esquerda, tabela fixa à direita.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toSaoPauloISODate } from "@/lib/date-local";
 import { useSearchParams } from "react-router-dom";
 import { ArrowLeft, Maximize2, RefreshCw, AlertTriangle } from "lucide-react";
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts";
@@ -18,8 +19,8 @@ import {
 } from "@/lib/equipConfiabilidade";
 import { fmtNumero, listarProducao, type LinhaProducao } from "@/lib/equipProducao";
 
-const hoje = () => new Date().toISOString().slice(0, 10);
-const diasAtras = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+const hoje = () => toSaoPauloISODate();
+const diasAtras = (n: number) => toSaoPauloISODate(new Date(Date.now() - n * 86_400_000));
 const COR = { neutro: "#94a3b8", verde: "#10b981", amarelo: "#f59e0b", vermelho: "#ef4444" } as const;
 const TODAS = "";
 

@@ -4,6 +4,7 @@
  * Design: Dark theme elegante para TV.
  */
 import { useEffect, useState, useCallback } from "react";
+import { toSaoPauloISODate } from "@/lib/date-local";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -79,7 +80,7 @@ export default function DashboardManutencao() {
 
   const load = useCallback(async () => {
     const hoje = new Date();
-    const trinta = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+    const trinta = toSaoPauloISODate(new Date(Date.now() - 30 * 86400000));
 
     const [
       { data: osOpen },
@@ -94,7 +95,7 @@ export default function DashboardManutencao() {
       (supabase as any).from("manutencao_documentos").select("equipment_fleet,tipo_documento,data_vencimento")
         .not("data_vencimento", "is", null),
       (supabase as any).from("equipment_diaries").select("equipment_fleet,work_status")
-        .eq("date", new Date().toISOString().split("T")[0]).eq("work_status", "Inoperante")
+        .eq("date", toSaoPauloISODate()).eq("work_status", "Inoperante")
         .or("status.is.null,status.neq.rascunho"),
     ]);
 

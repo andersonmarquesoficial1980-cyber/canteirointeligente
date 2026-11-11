@@ -4,6 +4,7 @@
  * Design: Dark theme elegante para TV (full-screen).
  */
 import { useEffect, useState, useCallback } from "react";
+import { toSaoPauloISODate } from "@/lib/date-local";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -121,8 +122,8 @@ export default function DashboardObras() {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const load = useCallback(async () => {
-    const hoje = new Date().toISOString().split("T")[0];
-    const sevenDaysAgo = new Date(Date.now() - 6 * 86400000).toISOString().split("T")[0];
+    const hoje = toSaoPauloISODate();
+    const sevenDaysAgo = toSaoPauloISODate(new Date(Date.now() - 6 * 86400000));
 
     const [
       { data: rdos30 },
@@ -132,7 +133,7 @@ export default function DashboardObras() {
       (supabase as any).from("rdo_diarios")
         .select("obra_nome, data, clima, tipo_rdo")
         .or("status_validacao.is.null,status_validacao.neq.rascunho")
-        .gte("data", new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0])
+        .gte("data", toSaoPauloISODate(new Date(Date.now() - 30 * 86400000)))
         .order("data", { ascending: false }),
       (supabase as any).from("rdo_diarios")
         .select("obra_nome, turno, tipo_rdo, responsavel, clima, data")
@@ -192,7 +193,7 @@ export default function DashboardObras() {
     }
     const series: { data: string; count: number }[] = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 86400000).toISOString().split("T")[0];
+      const d = toSaoPauloISODate(new Date(Date.now() - i * 86400000));
       series.push({ data: fmtDate(d), count: countByDay[d] || 0 });
     }
     setRdosSemana(series);
