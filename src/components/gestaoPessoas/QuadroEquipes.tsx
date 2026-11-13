@@ -6,6 +6,7 @@ import {
 import { Loader2, GripVertical, Eye, EyeOff, SlidersHorizontal, ChevronLeft, ChevronRight, ClipboardPlus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { LARGURA_PADRAO, chaveColuna, colunasVisiveis, funcaoDe, inserirAntes, limitarLargura, montarColunas, moverChave, ordenarColunas, ordenarPessoas, SEM_EQUIPE, type ModoCards, type ColunaQuadro, type PessoaQuadro } from "@/lib/quadroEquipes";
+import { formatarDataBR, rotuloSituacao, type PessoaProjetada, type ResumoEquipe } from "@/lib/quadroAlocacao";
 import { rotuloPendencia, semDestino as calcSemDestino, tomPendencia, type PendenciaQuadro, type TomPendencia } from "@/lib/quadroPendencias";
 
 const TOM: Record<TomPendencia, { bg: string; text: string; borda: string }> = {
@@ -14,7 +15,7 @@ const TOM: Record<TomPendencia, { bg: string; text: string; borda: string }> = {
   info: { bg: "#fef9c3", text: "#854d0e", borda: "#fde047" },
 };
 
-export type PessoaCard = PessoaQuadro & { foto_url?: string | null };
+export type PessoaCard = PessoaQuadro & PessoaProjetada & { foto_url?: string | null };
 
 type Props = {
   pessoas: PessoaCard[];
@@ -46,6 +47,10 @@ type Props = {
   /** Pendências abertas por funcionário (mesma fila de Pendências RH). */
   pendencias?: Record<string, PendenciaQuadro[]>;
   onPendencia?: (pessoa: PessoaCard) => void;
+  /** Efetivo da equipe (quem pertence a ela mas está fora: férias, afastado, emprestado). */
+  resumoColuna?: (chave: string) => ResumoEquipe | null;
+  /** Confirmar retorno de quem terminou o empréstimo temporário (só com permissão de Programador). */
+  onConfirmarRetorno?: (pessoa: PessoaCard) => void;
   /** Textos do domínio. Padrão = funcionários (Gestão de Pessoas); Frotas passa os de equipamentos. */
   rotulos?: Partial<Rotulos>;
 };
@@ -79,10 +84,10 @@ const colisao: CollisionDetection = (args) => {
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const iniciais = (nome: string) => nome.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]).join("").toUpperCase();
 
-function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto, pendencias = [], semDestino = false, onPendencia, inicial }: {
+function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto, pendencias = [], semDestino = false, onPendencia, inicial, onConfirmarRetorno }: {
   inicial: string;
   p: PessoaCard; podeArrastar: boolean; podeMover: boolean; movendo: boolean; sobreposto?: boolean;
-  pendencias?: PendenciaQuadro[]; semDestino?: boolean; onPendencia?: (p: PessoaCard) => void;
+  pendencias?: PendenciaQuadro[]; semDestino?: boolean; onPendencia?: (p: PessoaCard) => void; onConfirmarRetorno?: (p: PessoaCard) => void;
   badge: { label: string; bg: string; text: string } | null; onAbrir: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({ id: p.id, disabled: !podeArrastar || movendo });
@@ -111,6 +116,35 @@ function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto,
         <p style={{ fontSize: 10, color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {p.role || "Sem função"}{p.matricula ? ` · Mat. ${p.matricula}` : ""}
         </p>
+        {p.situacao && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4, alignItems: "center" }}>
+            <span
+              title={`${rotuloSituacao(p.situacao)} · equipe de origem: ${p.equipeOrigem || "não identificada"}${p.situacao === "emprestado" && p.fimPrevisto ? ` · retorno previsto ${formatarDataBR(p.fimPrevisto)}` : ""}`}
+              style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 999, background: "#eef2ff", color: "#3730a3", border: "1px solid #c7d2fe", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+            >
+              {p.equipeOrigem ? `de ${p.equipeOrigem}` : "origem não identificada"}
+            </span>
+            {p.situacao === "emprestado" && p.fimPrevisto && !p.aguardandoRetorno && (
+              <span style={{ fontSize: 9, color: "#64748b" }}>até {formatarDataBR(p.fimPrevisto)}</span>
+            )}
+            {p.aguardandoRetorno && (
+              <span title="O fim previsto já passou. Confirme o retorno para devolver à equipe de origem." style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 999, background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" }}>
+                Retorno previsto {formatarDataBR(p.fimPrevisto)}
+              </span>
+            )}
+            {p.aguardandoRetorno && onConfirmarRetorno && !sobreposto && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onConfirmarRetorno(p); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 6, border: "1px solid #059669", color: "#047857", background: "#ecfdf5", cursor: "pointer" }}
+              >
+                Confirmar retorno
+              </button>
+            )}
+          </div>
+        )}
         {(pendencias.length > 0 || semDestino) && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
             {pendencias.slice(0, 1).map((pd) => {
@@ -155,8 +189,8 @@ function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto,
   );
 }
 
-function Coluna({ coluna, custo, custoRotulo, semDestinoQtd = 0, destaqueAtivo, arrastandoColuna, largura, onLargura, onOcultar, children }: {
-  coluna: ColunaQuadro<PessoaCard>; custo?: number; custoRotulo: string; semDestinoQtd?: number; destaqueAtivo: boolean; arrastandoColuna: boolean;
+function Coluna({ coluna, custo, custoRotulo, resumo, semDestinoQtd = 0, destaqueAtivo, arrastandoColuna, largura, onLargura, onOcultar, children }: {
+  coluna: ColunaQuadro<PessoaCard>; custo?: number; custoRotulo: string; resumo?: ResumoEquipe | null; semDestinoQtd?: number; destaqueAtivo: boolean; arrastandoColuna: boolean;
   largura: number; onLargura: (px: number | null) => void; onOcultar: () => void; children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.chave });
@@ -219,6 +253,20 @@ function Coluna({ coluna, custo, custoRotulo, semDestinoQtd = 0, destaqueAtivo, 
         </div>
         {custo !== undefined && <p style={{ fontSize: 10, color: "#0f766e", fontWeight: 700 }}>{custoRotulo}: {brl(custo)}</p>}
         {semDestinoQtd > 0 && <p style={{ fontSize: 10, color: "#b45309", fontWeight: 800 }}>{semDestinoQtd} sem destino definido</p>}
+        {resumo && (
+          <details style={{ marginTop: 2 }}>
+            <summary style={{ fontSize: 10, color: "#92400e", fontWeight: 800, cursor: "pointer" }} title="Quem pertence a esta equipe mas está fora dela agora">
+              Efetivo: {resumo.presentes} de {resumo.nominal} ({resumo.fora.length} fora)
+            </summary>
+            <ul style={{ margin: "4px 0 0", padding: 0, listStyle: "none", fontSize: 10, color: "#475569" }}>
+              {resumo.fora.map((f) => (
+                <li key={f.id} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`${f.name} — ${f.destino}`}>
+                  {f.name} <span style={{ color: "#94a3b8" }}>→ {f.situacao === "emprestado" ? f.destino : rotuloSituacao(f.situacao)}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </header>
       <div data-quadro-lista style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", minHeight: 40 }}>{children}</div>
       <div
@@ -236,7 +284,7 @@ function Coluna({ coluna, custo, custoRotulo, semDestinoQtd = 0, destaqueAtivo, 
   );
 }
 
-export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia, ordem, larguras, onOrdem, onLargura, onLarguraTodas, onRestaurarLayout, layoutPersonalizado, modoCards, ordemCards, onModoCards, onOrdemCards, pendencias: pendenciasProp, onPendencia, rotulos: rotulosProp }: Props) {
+export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia, ordem, larguras, onOrdem, onLargura, onLarguraTodas, onRestaurarLayout, layoutPersonalizado, modoCards, ordemCards, onModoCards, onOrdemCards, pendencias: pendenciasProp, onPendencia, resumoColuna, onConfirmarRetorno, rotulos: rotulosProp }: Props) {
   const R: Rotulos = { ...ROTULOS_PESSOAS, ...rotulosProp };
   const pendencias = useMemo(() => pendenciasProp ?? {}, [pendenciasProp]);
   const [soPendencia, setSoPendencia] = useState(false);
@@ -444,7 +492,7 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
         ))}
         <div ref={quadroRef} style={{ display: "flex", gap: 12, overflowX: "scroll", overflowY: "hidden", paddingBottom: 12, alignItems: "flex-start", width: "100%" }}>
           {colunas.map((c) => (
-            <Coluna key={c.chave} coluna={c} custoRotulo={R.custo} semDestinoQtd={c.chave === SEM_EQUIPE ? c.pessoas.filter((p) => calcSemDestino(p.equipe, pendencias[p.id])).length : 0} destaqueAtivo={!!arrastando || !!colunaArrastada} arrastandoColuna={!!colunaArrastada} largura={larguras[chaveColuna(c)] ?? LARGURA_PADRAO} onLargura={(px) => onLargura(chaveColuna(c), px)} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
+            <Coluna key={c.chave} coluna={c} custoRotulo={R.custo} resumo={resumoColuna?.(c.chave)} semDestinoQtd={c.chave === SEM_EQUIPE ? c.pessoas.filter((p) => calcSemDestino(p.equipe, pendencias[p.id])).length : 0} destaqueAtivo={!!arrastando || !!colunaArrastada} arrastandoColuna={!!colunaArrastada} largura={larguras[chaveColuna(c)] ?? LARGURA_PADRAO} onLargura={(px) => onLargura(chaveColuna(c), px)} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
               {c.pessoas.length === 0 && <p style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", padding: "10px 0" }}>{R.nenhum}</p>}
               {c.pessoas.map((p, i) => (
                 <Fragment key={p.id}>
@@ -455,7 +503,7 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
                     </p>
                   )}
                   <Card inicial={R.iniciais(p)} p={p} podeArrastar={podeArrastarCard} podeMover={podeMover} movendo={movendoId === p.id} badge={statusVisual(p)} onAbrir={onAbrir}
-                    pendencias={pendencias[p.id]} semDestino={!!onPendencia && c.chave === SEM_EQUIPE && calcSemDestino(p.equipe, pendencias[p.id])} onPendencia={onPendencia} />
+                    onConfirmarRetorno={podeMover ? onConfirmarRetorno : undefined} pendencias={pendencias[p.id]} semDestino={!!onPendencia && c.chave === SEM_EQUIPE && calcSemDestino(p.equipe, pendencias[p.id])} onPendencia={onPendencia} />
                 </Fragment>
               ))}
             </Coluna>
