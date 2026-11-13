@@ -31,6 +31,7 @@ const TIPOS_RELATORIO = [
   { id: "producao_infra", label: "Produção de Infra (RDO)", icon: Building2, desc: "Produção de infraestrutura por período, OGS e apontador" },
   { id: "producao_pavimentacao", label: "Produção de Pavimentação (RDO)", icon: Route, desc: "Produção de pavimentação por período, OGS e apontador" },
   { id: "controle_lancamentos", label: "Controle de Lançamentos", icon: ListChecks, desc: "Visão gerencial dos diários por usuário e por equipamento" },
+  { id: "controle_rdo", label: "Controle de RDO", icon: ListChecks, desc: "Quais equipamentos e funcionários cadastrados não aparecem nos RDOs, dia a dia" },
   { id: "divergencias_rdo_diarios", label: "Divergências RDO × Diários", icon: ScanSearch, desc: "Conferir equipamentos e operadores por data ou período" },
   { id: "rdo_tecnico_dashboard", label: "Dashboard RDO Técnico — Obra", icon: LayoutDashboard, desc: "O que aconteceu na obra: dias trabalhados, produção, motivos de não produção, clima, usina" },
   { id: "rdo_tecnico_controle", label: "Controle de Preenchimento RDO Técnico", icon: ListChecks, desc: "Quem lançou ou não o RDO e fila de validações dos apontadores" },
@@ -414,6 +415,7 @@ export default function RelatoriosHome() {
                   if (t.id === "producao_infra") { navigate(withReturnTo(`/relatorios/producao-infra${origemQueryPrefix}`)); return; }
                   if (t.id === "producao_pavimentacao") { navigate(withReturnTo(`/relatorios/producao-pavimentacao${origemQueryPrefix}`)); return; }
                   if (t.id === "controle_lancamentos") { navigate(withReturnTo(`/relatorios/controle-lancamentos${origemQueryPrefix}`)); return; }
+                  if (t.id === "controle_rdo") { navigate(withReturnTo(`/relatorios/controle-rdo${origemQueryPrefix}`)); return; }
                   if (t.id === "divergencias_rdo_diarios") { navigate(withReturnTo(`/relatorios/divergencias-rdo-diarios${origemQueryPrefix}`)); return; }
                   if (t.id === "rdo_tecnico_controle") { navigate(withReturnTo(`/relatorios/rdo-tecnico-controle${origemQueryPrefix}`)); return; }
                   if (t.id === "rdo_tecnico_dashboard") { navigate(withReturnTo(`/relatorios/rdo-tecnico-dashboard${origemQueryPrefix}`)); return; }
