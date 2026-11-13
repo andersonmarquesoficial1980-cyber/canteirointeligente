@@ -823,46 +823,24 @@ export default function RelatorioControleLancamentos() {
             )}
           </div>
 
-          {/* PENDÊNCIAS */}
-          <details open={!painel} className="bg-white rounded-xl border border-gray-200 p-4 mb-4 group">
-            <summary className="cursor-pointer list-none flex items-center gap-3">
-              <h2 className="font-semibold text-slate-800">Pendências diárias por frota</h2>
-              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${frotaPendencias.length ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
-                {frotaPendencias.length} frota(s)
-              </span>
-              <span className="text-xs text-gray-400">{fmtDate(loadedRange.start)} a {fmtDate(loadedRange.end)} ({allDays.length} dias)</span>
-              <ChevronDown size={16} className="ml-auto text-gray-400 group-open:rotate-180 transition-transform" />
-            </summary>
-            <div className="mt-3">
-              {fetchError && <p className="text-destructive font-semibold" role="alert">{fetchError}</p>}
-              <details className="mb-3 text-xs text-slate-500">
-                <summary className="cursor-pointer underline w-fit">Como a cobrança é calculada</summary>
-                <p className="mt-1.5 text-sm text-slate-600">Todos os dias desde o cadastro contam, inclusive fins de semana, manutenção e dias parados; hoje ainda não está atrasado. A medição inicial é comparada com até 90 dias anteriores; sem leitura nesse intervalo, não há referência confiável. Devolvidos não geram cobrança atual (sem data histórica de devolução). Diários automáticos não quitam a obrigação. Mais de um uso ou turno deve gerar mais de um lançamento; sem escala independente, o painel só confirma os turnos efetivamente enviados. Equipamentos marcados como dispensados não entram na cobrança.</p>
-              </details>
-              {!fetchError && frotaPendencias.length === 0 ? <p className="text-sm text-slate-500">Nenhuma pendência detectada no período carregado.</p> : !fetchError &&
-                <div className={`${painel ? "max-h-72" : "max-h-96"} overflow-auto ${painel ? "grid gap-2 xl:grid-cols-2 2xl:grid-cols-3 content-start" : "space-y-2"}`}>
-                  {frotaPendencias.map(f => (
-                    <button key={f.key} type="button"
-                      onClick={() => { setAba("equipamento"); setSelKey(f.key); setExpandidos(prev => new Set(prev).add("frota_" + f.key)); }}
-                      className="w-full text-left rounded-md border border-gray-200 p-2 text-sm hover:bg-gray-50">
-                      <span className="font-semibold">{f.titulo}</span>{f.titulo !== f.key && <span className="text-gray-500"> ({f.key})</span>}
-                      <span className="text-slate-600"> — {f.missing.length} dias sem diário · {f.breaks.length} divergências</span>
-                    </button>
-                  ))}
-                </div>}
-            </div>
+          {fetchError && <p className="text-destructive font-semibold mb-3" role="alert">{fetchError}</p>}
+          <details className="mb-3 text-xs text-slate-500 no-print">
+            <summary className="cursor-pointer underline w-fit">Como a cobrança é calculada</summary>
+            <p className="mt-1.5 text-sm text-slate-600">Período: {fmtDate(loadedRange.start)} a {fmtDate(loadedRange.end)} ({allDays.length} dias). Todos os dias desde o cadastro contam, inclusive fins de semana, manutenção e dias parados; hoje ainda não está atrasado. A medição inicial é comparada com até 90 dias anteriores; sem leitura nesse intervalo, não há referência confiável. Devolvidos não geram cobrança atual (sem data histórica de devolução). Diários automáticos não quitam a obrigação. Mais de um uso ou turno deve gerar mais de um lançamento; sem escala independente, o painel só confirma os turnos efetivamente enviados. Equipamentos dispensados não entram na cobrança.</p>
           </details>
 
           {/* KPIs */}
-          <div className={`grid grid-cols-2 ${painel ? "md:grid-cols-5" : "md:grid-cols-4"} gap-3 mb-4`}>
+          <div className={`grid grid-cols-2 ${painel ? "md:grid-cols-5" : "md:grid-cols-5"} gap-3 mb-4`}>
             {[
               { label: "Usuários",     val: qtdUsuarios, color: "bg-blue-600",   icon: <Users size={18}/> },
               { label: qtdDispensadas ? `Frotas monitoradas (${qtdDispensadas} dispensadas)` : "Frotas monitoradas", val: frotasMonitoradas.length, color: "bg-teal-600", icon: <Wrench size={18}/> },
               { label: "✅ Enviados",   val: totalEnviados,  color: "bg-green-600",  icon: <CheckCircle2 size={18}/> },
               { label: "📝 Rascunhos",  val: totalRascunhos, color: "bg-orange-500", icon: <AlertCircle size={18}/> },
-              ...(painel ? [{ label: "Frotas com pendência", val: frotaPendencias.length, color: "bg-red-600", icon: <FileX size={18}/> }] : []),
+              { label: "Frotas com pendência", val: frotaPendencias.length, color: "bg-red-600", icon: <FileX size={18}/>, click: true },
             ].map(k => (
-              <div key={k.label} className={`${k.color} text-white rounded-xl ${painel ? "p-3" : "p-4"} flex items-center gap-3 shadow-sm`}>
+              <div key={k.label} onClick={"click" in k ? () => { setAba("equipamento"); setApenasPendentes(v => !v); } : undefined}
+                title={"click" in k ? "Clique para filtrar só as frotas com pendência" : undefined}
+                className={`${k.color} text-white rounded-xl ${painel ? "p-3" : "p-4"} flex items-center gap-3 shadow-sm ${"click" in k ? `cursor-pointer ${apenasPendentes ? "ring-2 ring-offset-2 ring-red-400" : ""}` : ""}`}>
                 <div className="opacity-80">{k.icon}</div>
                 <div>
                   <div className="text-2xl font-bold">{k.val}</div>
