@@ -39,6 +39,7 @@ interface Perms {
   modulo_planejamento: boolean;
   modulo_refeicoes: boolean;
   refeicoes_gestor: boolean;
+  vagas_gestor: boolean;
   equipamentos_permitidos: string[];
   relatorios_permitidos: string[] | null;
 }
@@ -113,6 +114,7 @@ const MODULOS = [
   { key: "modulo_planejamento", label: "WF Planejamento" },
   { key: "modulo_refeicoes", label: "WF Refeições" },
   { key: "refeicoes_gestor", label: "Refeições — fechar pedido e registrar entrega" },
+  { key: "vagas_gestor", label: "Vagas de contratação — criar, editar e fechar vagas" },
   // WF Dashboard não existe mais como módulo independente (mantemos a coluna no banco por legado, sem exibir no painel)
 ];
 
@@ -126,7 +128,7 @@ function emptyPerms(userId: string): Perms {
     modulo_gestao_frotas: false, modulo_gestao_pessoas: false,
     modulo_suprimentos: false, modulo_medicoes: false,
     modulo_sst: false, modulo_engenharia: false, modulo_encarregado: false,
-    modulo_orcamentos: false, modulo_planejamento: false, modulo_refeicoes: false, refeicoes_gestor: false,
+    modulo_orcamentos: false, modulo_planejamento: false, modulo_refeicoes: false, refeicoes_gestor: false, vagas_gestor: false,
     equipamentos_permitidos: [],
     relatorios_permitidos: null,
   };
@@ -285,7 +287,7 @@ export default function PermissoesManager() {
   function marcarTodos(userId: string, valor: boolean) {
     const perms = permsMap[userId] || emptyPerms(userId);
     const updated = { ...perms };
-    MODULOS.forEach(m => { (updated as any)[m.key] = m.key === "refeicoes_gestor" ? false : valor; });
+    MODULOS.forEach(m => { (updated as any)[m.key] = (m.key === "refeicoes_gestor" || m.key === "vagas_gestor") ? false : valor; });
     setPermsMap(prev => ({ ...prev, [userId]: updated }));
   }
 

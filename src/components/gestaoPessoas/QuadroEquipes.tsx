@@ -7,6 +7,7 @@ import { Loader2, GripVertical, Eye, EyeOff, SlidersHorizontal, ChevronLeft, Che
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { LARGURA_PADRAO, chaveColuna, colunasVisiveis, funcaoDe, inserirAntes, limitarLargura, montarColunas, moverChave, ordenarColunas, ordenarPessoas, SEM_EQUIPE, type ModoCards, type ColunaQuadro, type PessoaQuadro } from "@/lib/quadroEquipes";
 import { formatarDataBR, rotuloSituacao, type PessoaProjetada, type ResumoEquipe } from "@/lib/quadroAlocacao";
+import { rotuloPrioridade, type Vaga } from "@/lib/vagasContratacao";
 import { rotuloPendencia, semDestino as calcSemDestino, tomPendencia, type PendenciaQuadro, type TomPendencia } from "@/lib/quadroPendencias";
 
 const TOM: Record<TomPendencia, { bg: string; text: string; borda: string }> = {
@@ -53,6 +54,9 @@ type Props = {
   onConfirmarRetorno?: (pessoa: PessoaCard) => void;
   /** Textos do domínio. Padrão = funcionários (Gestão de Pessoas); Frotas passa os de equipamentos. */
   rotulos?: Partial<Rotulos>;
+  /** Vagas de contratação abertas da equipe (cartões “A contratar”). Omitir = recurso desligado. */
+  vagasColuna?: (chave: string) => Vaga[];
+  onVaga?: (vaga: Vaga) => void;
 };
 
 export type Rotulos = {
@@ -189,8 +193,8 @@ function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto,
   );
 }
 
-function Coluna({ coluna, custo, custoRotulo, resumo, semDestinoQtd = 0, destaqueAtivo, arrastandoColuna, largura, onLargura, onOcultar, children }: {
-  coluna: ColunaQuadro<PessoaCard>; custo?: number; custoRotulo: string; resumo?: ResumoEquipe | null; semDestinoQtd?: number; destaqueAtivo: boolean; arrastandoColuna: boolean;
+function Coluna({ coluna, custo, custoRotulo, resumo, semDestinoQtd = 0, vagasQtd = 0, destaqueAtivo, arrastandoColuna, largura, onLargura, onOcultar, children }: {
+  coluna: ColunaQuadro<PessoaCard>; custo?: number; custoRotulo: string; resumo?: ResumoEquipe | null; semDestinoQtd?: number; vagasQtd?: number; destaqueAtivo: boolean; arrastandoColuna: boolean;
   largura: number; onLargura: (px: number | null) => void; onOcultar: () => void; children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.chave });
@@ -252,6 +256,7 @@ function Coluna({ coluna, custo, custoRotulo, resumo, semDestinoQtd = 0, destaqu
           </span>
         </div>
         {custo !== undefined && <p style={{ fontSize: 10, color: "#0f766e", fontWeight: 700 }}>{custoRotulo}: {brl(custo)}</p>}
+        {vagasQtd > 0 && <p style={{ fontSize: 10, color: "#b45309", fontWeight: 800 }}>{vagasQtd} vaga(s) a contratar</p>}
         {semDestinoQtd > 0 && <p style={{ fontSize: 10, color: "#b45309", fontWeight: 800 }}>{semDestinoQtd} sem destino definido</p>}
         {resumo && (
           <details style={{ marginTop: 2 }}>
@@ -284,7 +289,7 @@ function Coluna({ coluna, custo, custoRotulo, resumo, semDestinoQtd = 0, destaqu
   );
 }
 
-export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia, ordem, larguras, onOrdem, onLargura, onLarguraTodas, onRestaurarLayout, layoutPersonalizado, modoCards, ordemCards, onModoCards, onOrdemCards, pendencias: pendenciasProp, onPendencia, resumoColuna, onConfirmarRetorno, rotulos: rotulosProp }: Props) {
+export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia, ordem, larguras, onOrdem, onLargura, onLarguraTodas, onRestaurarLayout, layoutPersonalizado, modoCards, ordemCards, onModoCards, onOrdemCards, pendencias: pendenciasProp, onPendencia, resumoColuna, onConfirmarRetorno, rotulos: rotulosProp, vagasColuna, onVaga }: Props) {
   const R: Rotulos = { ...ROTULOS_PESSOAS, ...rotulosProp };
   const pendencias = useMemo(() => pendenciasProp ?? {}, [pendenciasProp]);
   const [soPendencia, setSoPendencia] = useState(false);
@@ -492,7 +497,7 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
         ))}
         <div ref={quadroRef} style={{ display: "flex", gap: 12, overflowX: "scroll", overflowY: "hidden", paddingBottom: 12, alignItems: "flex-start", width: "100%" }}>
           {colunas.map((c) => (
-            <Coluna key={c.chave} coluna={c} custoRotulo={R.custo} resumo={resumoColuna?.(c.chave)} semDestinoQtd={c.chave === SEM_EQUIPE ? c.pessoas.filter((p) => calcSemDestino(p.equipe, pendencias[p.id])).length : 0} destaqueAtivo={!!arrastando || !!colunaArrastada} arrastandoColuna={!!colunaArrastada} largura={larguras[chaveColuna(c)] ?? LARGURA_PADRAO} onLargura={(px) => onLargura(chaveColuna(c), px)} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
+            <Coluna key={c.chave} coluna={c} vagasQtd={vagasColuna?.(c.chave).length ?? 0} custoRotulo={R.custo} resumo={resumoColuna?.(c.chave)} semDestinoQtd={c.chave === SEM_EQUIPE ? c.pessoas.filter((p) => calcSemDestino(p.equipe, pendencias[p.id])).length : 0} destaqueAtivo={!!arrastando || !!colunaArrastada} arrastandoColuna={!!colunaArrastada} largura={larguras[chaveColuna(c)] ?? LARGURA_PADRAO} onLargura={(px) => onLargura(chaveColuna(c), px)} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
               {c.pessoas.length === 0 && <p style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", padding: "10px 0" }}>{R.nenhum}</p>}
               {c.pessoas.map((p, i) => (
                 <Fragment key={p.id}>
@@ -505,6 +510,17 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
                   <Card inicial={R.iniciais(p)} p={p} podeArrastar={podeArrastarCard} podeMover={podeMover} movendo={movendoId === p.id} badge={statusVisual(p)} onAbrir={onAbrir}
                     onConfirmarRetorno={podeMover ? onConfirmarRetorno : undefined} pendencias={pendencias[p.id]} semDestino={!!onPendencia && c.chave === SEM_EQUIPE && calcSemDestino(p.equipe, pendencias[p.id])} onPendencia={onPendencia} />
                 </Fragment>
+              ))}
+              {(vagasColuna?.(c.chave) ?? []).map((v) => (
+                <button key={v.id} type="button" onClick={() => onVaga?.(v)} title="Vaga a contratar — clique para abrir as vagas"
+                  style={{ textAlign: "left", background: "#fffbeb", border: "2px dashed #f59e0b", borderRadius: 10, padding: "6px 8px", cursor: "pointer", display: "block", width: "100%" }}>
+                  <span style={{ display: "flex", justifyContent: "space-between", gap: 6, fontSize: 9, fontWeight: 800, color: "#b45309", textTransform: "uppercase" }}>
+                    <span>A contratar</span>
+                    {(v.prioridade === "urgente" || v.prioridade === "alta") && <span style={{ color: v.prioridade === "urgente" ? "#dc2626" : "#ea580c" }}>{rotuloPrioridade(v.prioridade)}</span>}
+                  </span>
+                  <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#78350f", textTransform: "uppercase" }}>{v.funcao}{v.observacao ? ` · ${v.observacao}` : ""}</span>
+                  {v.data_prevista && <span style={{ display: "block", fontSize: 10, color: "#92400e" }}>prevista {v.data_prevista.split("-").reverse().join("/")}</span>}
+                </button>
               ))}
             </Coluna>
           ))}

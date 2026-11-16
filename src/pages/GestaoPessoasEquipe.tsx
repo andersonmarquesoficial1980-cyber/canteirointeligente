@@ -15,6 +15,8 @@ import autoTable from "jspdf-autotable";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useVagas } from "@/hooks/useVagas";
+import { VagasBotao } from "@/components/gestaoPessoas/VagasPainel";
 import QuadroEquipes, { type PessoaCard } from "@/components/gestaoPessoas/QuadroEquipes";
 import { applyProgramadorBatch } from "@/lib/programadorBatch";
 import { chaveEquipe, prepararMovimento, rotuloEquipe, SEM_EQUIPE } from "@/lib/quadroEquipes";
@@ -802,6 +804,8 @@ export default function GestaoPessoasEquipe() {
   }, [todos, catalogoEquipesGlobal]);
 
   const companyQuadro = todos[0]?.company_id ?? null;
+  const vagasQuadro = useVagas(companyQuadro);
+  const [vagasAberto, setVagasAberto] = useState(false);
   async function carregarPendenciasQuadro() {
     if (!companyQuadro) return;
     const { data, error } = await (supabase as any)
@@ -1742,9 +1746,15 @@ export default function GestaoPessoasEquipe() {
                     <button onClick={() => setUltimoMovimento(null)} className="p-1 rounded hover:bg-emerald-100" aria-label="Fechar"><X size={14} /></button>
                   </div>
                 )}
+                <div style={{ marginBottom: 10 }}>
+                  <VagasBotao vagas={vagasQuadro} aberto={vagasAberto} onAbrir={() => setVagasAberto(true)} onFechar={() => setVagasAberto(false)}
+                    equipes={catalogoQuadro} funcionarios={todos as any} onAlocar={podeMoverQuadro ? (pessoa, equipe) => moverPeloQuadro(pessoa as PessoaCard, equipe) : undefined} />
+                </div>
                 <QuadroEquipes
+                  vagasColuna={vagasQuadro.disponivel ? vagasQuadro.vagasDaColuna : undefined}
+                  onVaga={() => setVagasAberto(true)}
                   pessoas={todos as PessoaCard[]}
-                  catalogo={catalogoQuadro}
+                  catalogo={[...catalogoQuadro, ...vagasQuadro.equipesComVaga]}
                   busca={busca}
                   podeMover={podeMoverQuadro}
                   movendoId={movendoQuadroId}

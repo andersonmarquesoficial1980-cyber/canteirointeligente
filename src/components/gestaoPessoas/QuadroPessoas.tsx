@@ -6,6 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useQuadroEquipesOcultas } from "@/hooks/useQuadroEquipesOcultas";
 import { useQuadroEquipesLayout } from "@/hooks/useQuadroEquipesLayout";
+import { useVagas } from "@/hooks/useVagas";
+import { VagasBotao } from "@/components/gestaoPessoas/VagasPainel";
 import QuadroEquipes, { type PessoaCard } from "@/components/gestaoPessoas/QuadroEquipes";
 import PendenciaRapidaDialog from "@/components/gestaoPessoas/PendenciaRapidaDialog";
 import MovimentoAlocacaoDialog, { type EstadoMovimento, type FormTemporario } from "@/components/gestaoPessoas/MovimentoAlocacaoDialog";
@@ -62,6 +64,8 @@ export default function QuadroPessoas({ funcionarios, catalogo, onAtualizarEquip
   const layout = useQuadroEquipesLayout(companyId, userId);
   const porId = useMemo(() => new Map(funcionarios.map((f) => [f.id, f])), [funcionarios]);
 
+  const vagas = useVagas(companyId);
+  const [vagasAberto, setVagasAberto] = useState(false);
   const [pendLinhas, setPendLinhas] = useState<PendenciaQuadro[]>([]);
   const [pessoaPend, setPessoaPend] = useState<PessoaCard | null>(null);
   const [salvandoPend, setSalvandoPend] = useState(false);
@@ -119,7 +123,7 @@ export default function QuadroPessoas({ funcionarios, catalogo, onAtualizarEquip
     () => projetarPessoas({ funcionarios, alocacoes, ferias: feriasVigentes(feriasLinhas, hoje), origemAfastados, hoje }),
     [funcionarios, alocacoes, feriasLinhas, origemAfastados, hoje],
   );
-  const catalogoQuadro = useMemo(() => [...catalogo, COLUNA_FERIAS, COLUNA_AFASTADOS], [catalogo]);
+  const catalogoQuadro = useMemo(() => [...catalogo, ...vagas.equipesComVaga, COLUNA_FERIAS, COLUNA_AFASTADOS], [catalogo, vagas.equipesComVaga]);
 
   const rpc = async (nome: string, args: Record<string, unknown>) => {
     const { data, error } = await (supabase as any).rpc(nome, args);
@@ -286,6 +290,10 @@ export default function QuadroPessoas({ funcionarios, catalogo, onAtualizarEquip
         <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, matrícula, função ou equipe…"
           className="w-full h-9 rounded-lg border border-border bg-background pl-8 pr-2 text-sm" />
       </div>
+      <div style={{ marginBottom: 10 }}>
+        <VagasBotao vagas={vagas} aberto={vagasAberto} onAbrir={() => setVagasAberto(true)} onFechar={() => setVagasAberto(false)}
+          equipes={equipesDisponiveis} funcionarios={funcionarios} onAlocar={podeMover ? (pessoa, equipe) => mover(pessoa as PessoaCard, equipe) : undefined} />
+      </div>
 
       {ultimo && podeMover && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 8, padding: "6px 10px", marginBottom: 10, fontSize: 12 }}>
@@ -307,6 +315,7 @@ export default function QuadroPessoas({ funcionarios, catalogo, onAtualizarEquip
         onLarguraTodas={layout.definirTodas} onRestaurarLayout={layout.restaurar} layoutPersonalizado={layout.personalizado}
         modoCards={layout.modoCards} ordemCards={layout.ordemCards} onModoCards={layout.definirModoCards} onOrdemCards={layout.definirOrdemCards}
         pendencias={pendencias} onPendencia={setPessoaPend}
+        vagasColuna={vagas.disponivel ? vagas.vagasDaColuna : undefined} onVaga={() => setVagasAberto(true)}
       />
       <MovimentoAlocacaoDialog
         estado={dialogo?.estado ?? null} hoje={hoje} salvando={salvandoMov} onFechar={() => setDialogo(null)}

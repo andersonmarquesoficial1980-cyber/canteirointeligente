@@ -8501,6 +8501,7 @@ export type Database = {
           modulo_planejamento: boolean
           modulo_refeicoes: boolean
           refeicoes_gestor: boolean
+          vagas_gestor: boolean
           modulo_programador: boolean | null
           modulo_relatorios: boolean | null
           modulo_rh: boolean | null
@@ -8534,6 +8535,7 @@ export type Database = {
           modulo_planejamento?: boolean
           modulo_refeicoes?: boolean
           refeicoes_gestor?: boolean
+          vagas_gestor?: boolean
           modulo_programador?: boolean | null
           modulo_relatorios?: boolean | null
           modulo_rh?: boolean | null
@@ -8567,6 +8569,7 @@ export type Database = {
           modulo_planejamento?: boolean
           modulo_refeicoes?: boolean
           refeicoes_gestor?: boolean
+          vagas_gestor?: boolean
           modulo_programador?: boolean | null
           modulo_relatorios?: boolean | null
           modulo_rh?: boolean | null
