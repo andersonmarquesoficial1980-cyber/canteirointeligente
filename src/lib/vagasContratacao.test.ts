@@ -38,6 +38,6 @@ describe("vagasContratacao", () => {
       p("1", "ZE", "MOTORISTA", "CBUQ01"), p("2", "ANA", "AJUDANTE GERAL", "CBUQ01"), p("3", "BIA", "AJUDANTE GERAL", null),
       p("4", "CARLOS", "AJUDANTE GERAL", "CBUQ03 - GIVANILDO"), p("5", "DEMI", "AJUDANTE GERAL", null, "demitido"),
     ], { funcao: "AJUDANTE GERAL", equipe: "CBUQ03 - GIVANILDO" });
-    expect(r.map((x) => x.id)).toEqual(["4", "3", "2", "1"]);
+    expect(r.map((x) => x.id)).toEqual(["3", "4", "2", "1"]);
   });
 });
