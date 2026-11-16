@@ -12,7 +12,7 @@ describe("quadroHoje", () => {
     alocacoes: [{ id: "a", employee_id: "2", equipe_origem: "AELSON", equipe_destino: "JOSENILDO", data_inicio: "2026-11-12", data_fim_prevista: null }],
     funcionarios: [p("1", "Ana", "AELSON"), p("2", "Bruno", "AELSON"), p("3", "Caio", "AELSON"), p("4", "Duda", null), p("5", "Edu", "AELSON", "demitido"), p("6", "Fabio", "AELSON", "afastado")],
   });
-  const linhas = montarLinhasQuadroHoje({ pessoas, ogs, ultimaMovHistorico: { "1": "2026-11-01T10:00:00Z", "2": "2026-11-05T10:00:00Z" }, ultimaMovAlocacao: { "2": "2026-11-12" } });
+  const linhas = montarLinhasQuadroHoje({ pessoas, ogs, ultimaMovHistorico: { "1": { data: "2026-11-01T10:00:00Z", de: "Sem equipe", para: "AELSON" }, "2": { data: "2026-11-05T10:00:00Z", de: "X", para: "AELSON" } }, ultimaMovAlocacao: { "2": { data: "2026-11-12", de: "AELSON", para: "JOSENILDO" } } });
 
   it("segue a projeção do quadro: emprestado no destino, férias e afastados em colunas próprias, demitido fora", () => {
     const por = Object.fromEntries(linhas.map((l) => [l.nome, l]));
@@ -27,7 +27,8 @@ describe("quadroHoje", () => {
     expect([...new Set(linhas.map((l) => l.equipe))]).toEqual(["AELSON", "JOSENILDO", "AFASTADOS", "FÉRIAS", "Sem equipe"]);
   });
   it("última movimentação = a mais recente entre histórico e alocação", () => {
-    expect(linhas.find((l) => l.nome === "Bruno")!.ultimaMov).toBe("2026-11-12");
+    expect(linhas.find((l) => l.nome === "Bruno")).toMatchObject({ ultimaMov: "2026-11-12", movDe: "AELSON", movPara: "JOSENILDO", movTipo: "Temporária" });
+    expect(linhas.find((l) => l.nome === "Ana")).toMatchObject({ movDe: "Sem equipe", movPara: "AELSON", movTipo: "Definitiva" });
     expect(maisRecente("", null, "2026-11-01")).toBe("2026-11-01");
     expect(dataBR("2026-11-01T10:00:00Z")).toBe("01/11/2026");
   });
@@ -36,7 +37,7 @@ describe("quadroHoje", () => {
     expect(blocos[0]).toMatchObject({ equipe: "AELSON", ogs: "1234" });
     expect(gerarCsv("T", HOJE, blocos)).toContain('"AELSON";"1234";"1";"Ana"');
     expect(gerarHtmlPdf("T", HOJE, blocos)).toContain("AELSON — OGS 1234");
-    expect(celulasLinha(linhas[0])).toHaveLength(8);
+    expect(celulasLinha(linhas[0])).toHaveLength(11);
   });
   it("normaliza OGS e status como o Programador", () => {
     expect(normalizarOgs("  1234  ")).toBe("1234");
@@ -45,7 +46,7 @@ describe("quadroHoje", () => {
     expect(statusComoProgramador("FÉRIAS")).toBe("ferias");
   });
   it("oculta equipes administrativas, DEMITIDOS e quem está em férias/afastado vindo delas", () => {
-    const base = { ogs: "", matricula: "", funcao: "", situacao: "", origem: "", ultimaMov: "" };
+    const base = { ogs: "", matricula: "", funcao: "", situacao: "", origem: "", ultimaMov: "", movDe: "", movPara: "", movTipo: "" };
     const l = (id: string, equipe: string, origem = "") => ({ ...base, id, nome: id, equipe, origem });
     const r = filtrarEquipesOcultas([l("a", "FINANCEIRO"), l("b", "DEMITIDOS"), l("c", "FÉRIAS", "Jurídico"), l("d", "AELSON"), l("e", "FÉRIAS", "AELSON")], new Set(["financeiro", "jurídico"]));
     expect(r.map((x) => x.id)).toEqual(["d", "e"]);

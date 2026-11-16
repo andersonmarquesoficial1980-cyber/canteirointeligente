@@ -10,7 +10,7 @@ import { programadorEmployeesQuery } from "@/lib/programadorTeams";
 import { chaveEquipe } from "@/lib/quadroEquipes";
 import { useEquipesOcultas } from "@/lib/equipesOcultas";
 import {
-  agruparPorEquipe, dataBR, filtrarEquipesOcultas, gerarCsv, gerarHtmlPdf, montarLinhasQuadroHoje, statusComoProgramador, type PessoaHoje,
+  agruparPorEquipe, dataBR, type Movimento, filtrarEquipesOcultas, gerarCsv, gerarHtmlPdf, montarLinhasQuadroHoje, statusComoProgramador, type PessoaHoje,
 } from "@/lib/quadroHoje";
 
 const TITULO = "Quadro de Hoje — Localização de Pessoal por Equipe";
@@ -26,7 +26,7 @@ export default function RelatorioQuadroHoje({ companyId }: { companyId: string }
   const [erro, setErro] = useState("");
   const [selecionadas, setSelecionadas] = useState<string[]>([]); // chaves; vazio = todas
   const [busca, setBusca] = useState("");
-  const [ultimaMovHistorico, setUltimaMovHistorico] = useState<Record<string, string>>({});
+  const [ultimaMovHistorico, setUltimaMovHistorico] = useState<Record<string, Movimento>>({});
 
   useEffect(() => {
     let vivo = true;
@@ -47,17 +47,21 @@ export default function RelatorioQuadroHoje({ companyId }: { companyId: string }
 
   // Última movimentação no quadro: última "Mudança rápida de equipe" do histórico (+ início da alocação temporária ativa).
   useEffect(() => {
-    (supabase as any).from("employee_historico").select("employee_id, created_at")
+    (supabase as any).from("employee_historico").select("employee_id, created_at, descricao")
       .eq("company_id", companyId).eq("tipo", "mudanca_equipe").order("created_at", { ascending: false }).limit(5000)
       .then(({ data, error }: any) => {
         if (error) return;
-        const mapa: Record<string, string> = {};
-        for (const h of (data || []) as { employee_id: string; created_at: string }[]) if (!mapa[h.employee_id]) mapa[h.employee_id] = h.created_at;
+        const mapa: Record<string, Movimento> = {};
+        for (const h of (data || []) as { employee_id: string; created_at: string; descricao: string }[]) {
+          if (mapa[h.employee_id]) continue;
+          const m = /:\s*(.+?)\s*→\s*(.+)$/.exec(h.descricao || "");
+          mapa[h.employee_id] = { data: h.created_at, de: m?.[1]?.trim() ?? "", para: m?.[2]?.trim() ?? "" };
+        }
         setUltimaMovHistorico(mapa);
       });
   }, [companyId]);
 
-  const ultimaMovAlocacao = useMemo(() => Object.fromEntries(alocacoes.map((a) => [a.employee_id, a.data_inicio])), [alocacoes]);
+  const ultimaMovAlocacao = useMemo(() => Object.fromEntries(alocacoes.map((a) => [a.employee_id, { data: a.data_inicio, de: a.equipe_origem, para: a.equipe_destino }])), [alocacoes]);
   const ocultasAdmin = useEquipesOcultas();
   const [mostrarAdmin, setMostrarAdmin] = useState(false);
   const completas = useMemo(
@@ -157,7 +161,7 @@ export default function RelatorioQuadroHoje({ companyId }: { companyId: string }
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead><tr className="text-left text-muted-foreground border-b border-border">
-                    {["Matrícula", "Nome", "Função", "Situação", "Equipe de origem", "Última movimentação"].map((h) => <th key={h} className="px-3 py-1.5 font-semibold">{h}</th>)}
+                    {["Matrícula", "Nome", "Função", "Situação", "Equipe de origem", "Última movimentação", "Estava em", "Foi para", "Tipo"].map((h) => <th key={h} className="px-3 py-1.5 font-semibold">{h}</th>)}
                   </tr></thead>
                   <tbody>
                     {b.linhas.map((l) => (
@@ -168,6 +172,9 @@ export default function RelatorioQuadroHoje({ companyId }: { companyId: string }
                         <td className="px-3 py-1.5">{l.situacao || "Ativo"}</td>
                         <td className="px-3 py-1.5">{l.origem || "-"}</td>
                         <td className="px-3 py-1.5 whitespace-nowrap">{dataBR(l.ultimaMov) || "-"}</td>
+                        <td className="px-3 py-1.5">{l.movDe || "-"}</td>
+                        <td className="px-3 py-1.5">{l.movPara || "-"}</td>
+                        <td className="px-3 py-1.5">{l.movTipo || "-"}</td>
                       </tr>
                     ))}
                   </tbody>

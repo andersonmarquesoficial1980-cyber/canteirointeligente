@@ -22,7 +22,14 @@ export type LinhaQuadroHoje = {
   origem: string;
   /** Última movimentação no quadro (ISO date/datetime) ou "". */
   ultimaMov: string;
+  /** Onde estava / para onde foi na última movimentação ("" se sem registro). */
+  movDe: string;
+  movPara: string;
+  /** "Definitiva" (troca de equipe) ou "Temporária" (alocação). */
+  movTipo: string;
 };
+
+export type Movimento = { data: string; de: string; para: string };
 
 export type PessoaHoje = PessoaQuadro & PessoaProjetada;
 
@@ -56,13 +63,22 @@ export function maisRecente(...datas: (string | null | undefined)[]): string {
   return datas.filter((d): d is string => !!d).sort().pop() || "";
 }
 
+/** Escolhe a movimentação mais recente entre a troca de equipe (histórico) e a alocação temporária. */
+export function movimentoMaisRecente(hist?: Movimento, aloc?: Movimento): Pick<LinhaQuadroHoje, "ultimaMov" | "movDe" | "movPara" | "movTipo"> {
+  const escolhida = hist && aloc ? (aloc.data.slice(0, 10) >= hist.data.slice(0, 10) ? { m: aloc, t: "Temporária" } : { m: hist, t: "Definitiva" })
+    : aloc ? { m: aloc, t: "Temporária" } : hist ? { m: hist, t: "Definitiva" } : null;
+  return escolhida
+    ? { ultimaMov: escolhida.m.data, movDe: escolhida.m.de, movPara: escolhida.m.para, movTipo: escolhida.t }
+    : { ultimaMov: "", movDe: "", movPara: "", movTipo: "" };
+}
+
 export function montarLinhasQuadroHoje(args: {
   pessoas: readonly PessoaHoje[];
   ogs: OgsPorEquipe;
   /** employee_id → data da última "Mudança rápida de equipe" no histórico. */
-  ultimaMovHistorico?: Readonly<Record<string, string>>;
+  ultimaMovHistorico?: Readonly<Record<string, Movimento>>;
   /** employee_id → data_inicio da alocação temporária ativa. */
-  ultimaMovAlocacao?: Readonly<Record<string, string>>;
+  ultimaMovAlocacao?: Readonly<Record<string, Movimento>>;
 }): LinhaQuadroHoje[] {
   const { pessoas, ogs, ultimaMovHistorico = {}, ultimaMovAlocacao = {} } = args;
   const linhas = pessoas
@@ -79,7 +95,7 @@ export function montarLinhasQuadroHoje(args: {
         funcao: p.role || "",
         situacao: p.situacao ? ROTULO_SITUACAO[p.situacao] ?? p.situacao : "",
         origem,
-        ultimaMov: maisRecente(ultimaMovHistorico[p.id], ultimaMovAlocacao[p.id]),
+        ...movimentoMaisRecente(ultimaMovHistorico[p.id], ultimaMovAlocacao[p.id]),
       };
     });
   return linhas.sort(compararLinhas);
@@ -117,10 +133,11 @@ export function dataBR(iso: string | null | undefined): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
 }
 
-export const COLUNAS_EXPORTACAO = ["Equipe", "OGS", "Matrícula", "Nome", "Função", "Situação", "Equipe de origem", "Última movimentação"] as const;
+export const COLUNAS_EXPORTACAO = ["Equipe", "OGS", "Matrícula", "Nome", "Função", "Situação", "Equipe de origem", "Última movimentação", "Estava em", "Foi para", "Tipo"] as const;
 
 export const celulasLinha = (l: LinhaQuadroHoje): string[] => [
   l.equipe, l.ogs || "-", l.matricula || "-", l.nome, l.funcao || "-", l.situacao || "Ativo", l.origem || "-", dataBR(l.ultimaMov) || "-",
+  l.movDe || "-", l.movPara || "-", l.movTipo || "-",
 ];
 
 const escCsv = (c: unknown) => `"${String(c ?? "").replace(/"/g, '""')}"`;
@@ -137,10 +154,10 @@ export const escHtml = (v: unknown) => String(v ?? "").replace(/&/g, "&amp;").re
 /** HTML paisagem para imprimir/PDF: um bloco por equipe, OGS no título. */
 export function gerarHtmlPdf(titulo: string, hojeISO: string, blocos: readonly BlocoEquipe[]): string {
   const total = blocos.reduce((n, b) => n + b.linhas.length, 0);
-  const cab = ["Matrícula", "Nome", "Função", "Situação", "Equipe de origem", "Última mov."];
+  const cab = ["Matrícula", "Nome", "Função", "Situação", "Equipe de origem", "Última mov.", "Estava em", "Foi para", "Tipo"];
   const corpo = blocos.map((b) => `
     <h2>${escHtml(b.equipe)}${b.ogs ? ` — OGS ${escHtml(b.ogs)}` : ""} <span class="n">(${b.linhas.length})</span></h2>
-    <table><tr>${cab.map((h) => `<th>${h}</th>`).join("")}</tr>${b.linhas.map((l) => `<tr><td>${escHtml(l.matricula || "-")}</td><td>${escHtml(l.nome)}</td><td>${escHtml(l.funcao || "-")}</td><td>${escHtml(l.situacao || "Ativo")}</td><td>${escHtml(l.origem || "-")}</td><td>${escHtml(dataBR(l.ultimaMov) || "-")}</td></tr>`).join("")}</table>`).join("");
+    <table><tr>${cab.map((h) => `<th>${h}</th>`).join("")}</tr>${b.linhas.map((l) => `<tr><td>${escHtml(l.matricula || "-")}</td><td>${escHtml(l.nome)}</td><td>${escHtml(l.funcao || "-")}</td><td>${escHtml(l.situacao || "Ativo")}</td><td>${escHtml(l.origem || "-")}</td><td>${escHtml(dataBR(l.ultimaMov) || "-")}</td><td>${escHtml(l.movDe || "-")}</td><td>${escHtml(l.movPara || "-")}</td><td>${escHtml(l.movTipo || "-")}</td></tr>`).join("")}</table>`).join("");
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escHtml(titulo)}</title><style>
     @page{size:A4 landscape;margin:8mm}
     body{font-family:Arial,sans-serif;padding:12px;color:#333;font-size:10px}
