@@ -161,7 +161,7 @@ export default function RelatorioQuadroHoje({ companyId }: { companyId: string }
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead><tr className="text-left text-muted-foreground border-b border-border">
-                    {["Matrícula", "Nome", "Função", "Situação", "Equipe de origem", "Última movimentação", "Estava em", "Foi para", "Tipo"].map((h) => <th key={h} className="px-3 py-1.5 font-semibold">{h}</th>)}
+                    {["Matrícula", "Nome", "Função", "Situação", "Equipe de origem (emprestado/férias/afastado)", "Última movimentação", "Estava em", "Foi para", "Tipo"].map((h) => <th key={h} className="px-3 py-1.5 font-semibold">{h}</th>)}
                   </tr></thead>
                   <tbody>
                     {b.linhas.map((l) => (

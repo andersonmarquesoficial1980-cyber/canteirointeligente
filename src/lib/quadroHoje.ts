@@ -133,7 +133,7 @@ export function dataBR(iso: string | null | undefined): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
 }
 
-export const COLUNAS_EXPORTACAO = ["Equipe", "OGS", "Matrícula", "Nome", "Função", "Situação", "Equipe de origem", "Última movimentação", "Estava em", "Foi para", "Tipo"] as const;
+export const COLUNAS_EXPORTACAO = ["Equipe", "OGS", "Matrícula", "Nome", "Função", "Situação", "Equipe de origem (emprestado/férias/afastado)", "Última movimentação", "Estava em", "Foi para", "Tipo"] as const;
 
 export const celulasLinha = (l: LinhaQuadroHoje): string[] => [
   l.equipe, l.ogs || "-", l.matricula || "-", l.nome, l.funcao || "-", l.situacao || "Ativo", l.origem || "-", dataBR(l.ultimaMov) || "-",
@@ -154,7 +154,7 @@ export const escHtml = (v: unknown) => String(v ?? "").replace(/&/g, "&amp;").re
 /** HTML paisagem para imprimir/PDF: um bloco por equipe, OGS no título. */
 export function gerarHtmlPdf(titulo: string, hojeISO: string, blocos: readonly BlocoEquipe[]): string {
   const total = blocos.reduce((n, b) => n + b.linhas.length, 0);
-  const cab = ["Matrícula", "Nome", "Função", "Situação", "Equipe de origem", "Última mov.", "Estava em", "Foi para", "Tipo"];
+  const cab = ["Matrícula", "Nome", "Função", "Situação", "Equipe de origem (emprestado/férias/afastado)", "Última mov.", "Estava em", "Foi para", "Tipo"];
   const corpo = blocos.map((b) => `
     <h2>${escHtml(b.equipe)}${b.ogs ? ` — OGS ${escHtml(b.ogs)}` : ""} <span class="n">(${b.linhas.length})</span></h2>
     <table><tr>${cab.map((h) => `<th>${h}</th>`).join("")}</tr>${b.linhas.map((l) => `<tr><td>${escHtml(l.matricula || "-")}</td><td>${escHtml(l.nome)}</td><td>${escHtml(l.funcao || "-")}</td><td>${escHtml(l.situacao || "Ativo")}</td><td>${escHtml(l.origem || "-")}</td><td>${escHtml(dataBR(l.ultimaMov) || "-")}</td><td>${escHtml(l.movDe || "-")}</td><td>${escHtml(l.movPara || "-")}</td><td>${escHtml(l.movTipo || "-")}</td></tr>`).join("")}</table>`).join("");
