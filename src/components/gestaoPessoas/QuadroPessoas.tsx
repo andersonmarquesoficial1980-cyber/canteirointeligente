@@ -14,10 +14,10 @@ import MovimentoAlocacaoDialog, { type EstadoMovimento, type FormTemporario } fr
 import { applyProgramadorBatch } from "@/lib/programadorBatch";
 import { toLocalISODate } from "@/lib/date-local";
 import { SEM_EQUIPE, chaveEquipe, prepararMovimento, rotuloEquipe } from "@/lib/quadroEquipes";
-import {
-  COLUNA_AFASTADOS, COLUNA_FERIAS, ehColunaDoRH, feriasVigentes, origemDoHistorico, projetarPessoas, resumoEquipe,
-  type AlocacaoAtiva, type FeriasLinha,
-} from "@/lib/quadroAlocacao";
+import { COLUNA_AFASTADOS, COLUNA_FERIAS, ehColunaDoRH, resumoEquipe } from "@/lib/quadroAlocacao";
+import { useQuadroProjecao } from "@/hooks/useQuadroProjecao";
+import { useEquipeOgs } from "@/hooks/useEquipeOgs";
+import { equipeTemOgs, chaveOgs } from "@/lib/quadroHoje";
 import {
   STATUS_ABERTOS, agruparAbertasPorFuncionario, montarNovaPendencia, rotuloPendencia,
   type FormPendenciaRapida, type PendenciaQuadro,
@@ -54,9 +54,6 @@ export default function QuadroPessoas({ funcionarios, catalogo, onAtualizarEquip
   const [dialogo, setDialogo] = useState<{ estado: EstadoMovimento; card: PessoaCard } | null>(null);
   const [salvandoMov, setSalvandoMov] = useState(false);
   const hoje = useMemo(() => toLocalISODate(), []);
-  const [alocacoes, setAlocacoes] = useState<AlocacaoAtiva[]>([]);
-  const [feriasLinhas, setFeriasLinhas] = useState<FeriasLinha[]>([]);
-  const [origemAfastados, setOrigemAfastados] = useState<Record<string, string>>({});
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
 
   const companyId = funcionarios[0]?.company_id ?? profile?.company_id ?? null;
@@ -80,49 +77,9 @@ export default function QuadroPessoas({ funcionarios, catalogo, onAtualizarEquip
   useEffect(() => { carregarPend(); }, [carregarPend]);
   const pendencias = useMemo(() => agruparAbertasPorFuncionario(pendLinhas), [pendLinhas]);
 
-  // Situação de hoje: alocações temporárias ativas e férias vigentes (RH). Falha silenciosa = quadro como no cadastro.
-  const carregarSituacao = useCallback(async () => {
-    if (!companyId) return;
-    const db = supabase as any;
-    try {
-    const [al, fe] = await Promise.all([
-      db.from("employee_alocacoes_temporarias").select("id, employee_id, equipe_origem, equipe_destino, data_inicio, data_fim_prevista")
-        .eq("company_id", companyId).eq("status", "ativa").limit(2000),
-      db.from("vacation_records").select("employee_id, data_inicio, data_fim, workflow_status")
-        .eq("company_id", companyId).lte("data_inicio", hoje).gte("data_fim", hoje).limit(2000),
-    ]);
-    if (!al.error) setAlocacoes((al.data || []) as AlocacaoAtiva[]);
-    if (!fe.error) setFeriasLinhas((fe.data || []) as FeriasLinha[]);
-    } catch { /* sem a situação de hoje, o quadro mostra o cadastro como antes */ }
-  }, [companyId, hoje]);
-  useEffect(() => { carregarSituacao(); }, [carregarSituacao]);
-
-  // Quem já está na coluna AFASTADOS por cadastro: a origem vem da última "Mudança rápida de equipe: A → AFASTADOS".
-  const idsAfastadosSemOrigem = useMemo(
-    () => funcionarios.filter((f) => chaveEquipe(f.status) === "afastado" && chaveEquipe(f.equipe) === chaveEquipe(COLUNA_AFASTADOS)).map((f) => f.id),
-    [funcionarios],
-  );
-  useEffect(() => {
-    if (!companyId || idsAfastadosSemOrigem.length === 0) return;
-    (supabase as any).from("employee_historico").select("employee_id, descricao, created_at")
-      .eq("company_id", companyId).eq("tipo", "mudanca_equipe").in("employee_id", idsAfastadosSemOrigem)
-      .order("created_at", { ascending: false }).limit(2000)
-      .then(({ data, error }: any) => {
-        if (error) return;
-        const mapa: Record<string, string> = {};
-        for (const h of (data || []) as { employee_id: string; descricao: string }[]) {
-          if (mapa[h.employee_id] !== undefined || !/→\s*afastados\s*$/i.test(h.descricao || "")) continue;
-          const o = origemDoHistorico(h.descricao);
-          if (o) mapa[h.employee_id] = o;
-        }
-        setOrigemAfastados(mapa);
-      });
-  }, [companyId, idsAfastadosSemOrigem]);
-
-  const projetadas = useMemo(
-    () => projetarPessoas({ funcionarios, alocacoes, ferias: feriasVigentes(feriasLinhas, hoje), origemAfastados, hoje }),
-    [funcionarios, alocacoes, feriasLinhas, origemAfastados, hoje],
-  );
+  // Posição de hoje (alocações + férias + origem de afastados): hook compartilhado com o relatório "Quadro de Hoje".
+  const { projetadas, carregarSituacao } = useQuadroProjecao(companyId, funcionarios, hoje);
+  const equipeOgs = useEquipeOgs(companyId, { id: userId, nome: profile?.nome_completo || profile?.email || null });
   const catalogoQuadro = useMemo(() => [...catalogo, ...vagas.equipesComVaga, COLUNA_FERIAS, COLUNA_AFASTADOS], [catalogo, vagas.equipesComVaga]);
 
   const rpc = async (nome: string, args: Record<string, unknown>) => {
@@ -256,6 +213,16 @@ export default function QuadroPessoas({ funcionarios, catalogo, onAtualizarEquip
     } finally { setMovendoId(null); }
   }
 
+  async function salvarOgs(equipe: string, valor: string) {
+    try {
+      await equipeOgs.salvar(equipe, valor);
+      toast({ title: valor.trim() ? "OGS da equipe atualizada" : "OGS da equipe removida", description: `${equipe}${valor.trim() ? ` → OGS ${valor.trim()}` : ""}` });
+    } catch (err: any) {
+      toast({ title: "Não foi possível salvar a OGS", description: err?.message || "Erro inesperado.", variant: "destructive" });
+      throw err;
+    }
+  }
+
   async function registrarPend(form: FormPendenciaRapida) {
     const pessoa = pessoaPend && porId.get(pessoaPend.id);
     if (!pessoa?.company_id) return;
@@ -316,6 +283,8 @@ export default function QuadroPessoas({ funcionarios, catalogo, onAtualizarEquip
         modoCards={layout.modoCards} ordemCards={layout.ordemCards} onModoCards={layout.definirModoCards} onOrdemCards={layout.definirOrdemCards}
         pendencias={pendencias} onPendencia={setPessoaPend}
         vagasColuna={vagas.disponivel ? vagas.vagasDaColuna : undefined} onVaga={() => setVagasAberto(true)}
+        ogsColuna={equipeOgs.disponivel ? (chave, nome) => (equipeTemOgs(nome) ? { ogs: equipeOgs.ogs[chaveOgs(nome)]?.ogs ?? null, atualizadoEm: equipeOgs.ogs[chaveOgs(nome)]?.atualizadoEm ?? null } : null) : undefined}
+        onEditarOgs={equipeOgs.disponivel && podeMover ? salvarOgs : undefined}
       />
       <MovimentoAlocacaoDialog
         estado={dialogo?.estado ?? null} hoje={hoje} salvando={salvandoMov} onFechar={() => setDialogo(null)}

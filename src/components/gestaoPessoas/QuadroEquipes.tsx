@@ -57,6 +57,10 @@ type Props = {
   /** Vagas de contratação abertas da equipe (cartões “A contratar”). Omitir = recurso desligado. */
   vagasColuna?: (chave: string) => Vaga[];
   onVaga?: (vaga: Vaga) => void;
+  /** OGS atual da equipe (rótulo no topo da coluna). Retornar null = coluna sem OGS (Sem equipe/Férias/Afastados). */
+  ogsColuna?: (chave: string, nome: string) => { ogs: string | null; atualizadoEm: string | null } | null;
+  /** Editar a OGS (só com permissão de Programador). Omitir = somente leitura. */
+  onEditarOgs?: (equipe: string, valor: string) => Promise<void>;
 };
 
 export type Rotulos = {
@@ -193,8 +197,45 @@ function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto,
   );
 }
 
-function Coluna({ coluna, custo, custoRotulo, resumo, semDestinoQtd = 0, vagasQtd = 0, destaqueAtivo, arrastandoColuna, largura, onLargura, onOcultar, children }: {
-  coluna: ColunaQuadro<PessoaCard>; custo?: number; custoRotulo: string; resumo?: ResumoEquipe | null; semDestinoQtd?: number; vagasQtd?: number; destaqueAtivo: boolean; arrastandoColuna: boolean;
+/** OGS atual da equipe no topo da coluna: só o número; clicar edita (Programador). */
+function OgsEquipe({ nome, info, onEditar }: { nome: string; info: { ogs: string | null; atualizadoEm: string | null }; onEditar?: (equipe: string, valor: string) => Promise<void> }) {
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const quando = info.atualizadoEm ? new Date(info.atualizadoEm).toLocaleDateString("pt-BR") : "";
+  const parar = (e: React.SyntheticEvent) => e.stopPropagation();
+  const confirmar = async () => {
+    if (!onEditar || salvando) return;
+    if (valor.trim() === (info.ogs || "")) { setEditando(false); return; }
+    setSalvando(true);
+    try { await onEditar(nome, valor); setEditando(false); } catch { /* aviso já exibido */ } finally { setSalvando(false); }
+  };
+  if (editando) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }} onPointerDown={parar} onMouseDown={parar} onClick={parar}>
+        <input autoFocus value={valor} maxLength={40} disabled={salvando} aria-label={`OGS da equipe ${nome}`} placeholder="Nº da OGS"
+          onChange={(e) => setValor(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") confirmar(); if (e.key === "Escape") setEditando(false); }}
+          style={{ fontSize: 11, width: 90, height: 22, border: "1px solid #94a3b8", borderRadius: 6, padding: "0 6px", background: "white" }} />
+        <button onClick={confirmar} disabled={salvando} style={{ fontSize: 10, fontWeight: 800, color: "#065f46" }}>{salvando ? "…" : "Salvar"}</button>
+        <button onClick={() => setEditando(false)} disabled={salvando} style={{ fontSize: 10, color: "#64748b" }}>Cancelar</button>
+      </div>
+    );
+  }
+  const texto = info.ogs ? `OGS ${info.ogs}` : "OGS não informada";
+  const dica = info.ogs ? `OGS atual da equipe${quando ? ` · atualizada em ${quando}` : ""}${onEditar ? " · clique para alterar" : ""}` : onEditar ? "Clique para informar a OGS atual da equipe" : "OGS não informada";
+  return (
+    <p style={{ marginTop: 2 }} onPointerDown={parar} onMouseDown={parar}>
+      <button type="button" disabled={!onEditar} title={dica} onClick={() => { setValor(info.ogs || ""); setEditando(true); }}
+        style={{ fontSize: 10, fontWeight: 800, color: info.ogs ? "#1d4ed8" : "#94a3b8", background: info.ogs ? "#dbeafe" : "transparent", border: info.ogs ? "none" : "1px dashed #cbd5e1", borderRadius: 6, padding: "1px 6px", cursor: onEditar ? "pointer" : "default" }}>
+        {texto}{info.ogs && quando ? <span style={{ fontWeight: 500, color: "#64748b" }}> · {quando}</span> : null}
+      </button>
+    </p>
+  );
+}
+
+function Coluna({ coluna, ogsInfo, onEditarOgs, custo, custoRotulo, resumo, semDestinoQtd = 0, vagasQtd = 0, destaqueAtivo, arrastandoColuna, largura, onLargura, onOcultar, children }: {
+  coluna: ColunaQuadro<PessoaCard>; ogsInfo: { ogs: string | null; atualizadoEm: string | null } | null; onEditarOgs?: (equipe: string, valor: string) => Promise<void>; custo?: number; custoRotulo: string; resumo?: ResumoEquipe | null; semDestinoQtd?: number; vagasQtd?: number; destaqueAtivo: boolean; arrastandoColuna: boolean;
   largura: number; onLargura: (px: number | null) => void; onOcultar: () => void; children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.chave });
@@ -255,6 +296,7 @@ function Coluna({ coluna, custo, custoRotulo, resumo, semDestinoQtd = 0, vagasQt
             </button>
           </span>
         </div>
+        {ogsInfo && <OgsEquipe nome={coluna.nome} info={ogsInfo} onEditar={onEditarOgs} />}
         {custo !== undefined && <p style={{ fontSize: 10, color: "#0f766e", fontWeight: 700 }}>{custoRotulo}: {brl(custo)}</p>}
         {vagasQtd > 0 && <p style={{ fontSize: 10, color: "#b45309", fontWeight: 800 }}>{vagasQtd} vaga(s) a contratar</p>}
         {semDestinoQtd > 0 && <p style={{ fontSize: 10, color: "#b45309", fontWeight: 800 }}>{semDestinoQtd} sem destino definido</p>}
@@ -289,7 +331,7 @@ function Coluna({ coluna, custo, custoRotulo, resumo, semDestinoQtd = 0, vagasQt
   );
 }
 
-export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia, ordem, larguras, onOrdem, onLargura, onLarguraTodas, onRestaurarLayout, layoutPersonalizado, modoCards, ordemCards, onModoCards, onOrdemCards, pendencias: pendenciasProp, onPendencia, resumoColuna, onConfirmarRetorno, rotulos: rotulosProp, vagasColuna, onVaga }: Props) {
+export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia, ordem, larguras, onOrdem, onLargura, onLarguraTodas, onRestaurarLayout, layoutPersonalizado, modoCards, ordemCards, onModoCards, onOrdemCards, pendencias: pendenciasProp, onPendencia, resumoColuna, onConfirmarRetorno, rotulos: rotulosProp, vagasColuna, onVaga, ogsColuna, onEditarOgs }: Props) {
   const R: Rotulos = { ...ROTULOS_PESSOAS, ...rotulosProp };
   const pendencias = useMemo(() => pendenciasProp ?? {}, [pendenciasProp]);
   const [soPendencia, setSoPendencia] = useState(false);
@@ -497,7 +539,7 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
         ))}
         <div ref={quadroRef} style={{ display: "flex", gap: 12, overflowX: "scroll", overflowY: "hidden", paddingBottom: 12, alignItems: "flex-start", width: "100%" }}>
           {colunas.map((c) => (
-            <Coluna key={c.chave} coluna={c} vagasQtd={vagasColuna?.(c.chave).length ?? 0} custoRotulo={R.custo} resumo={resumoColuna?.(c.chave)} semDestinoQtd={c.chave === SEM_EQUIPE ? c.pessoas.filter((p) => calcSemDestino(p.equipe, pendencias[p.id])).length : 0} destaqueAtivo={!!arrastando || !!colunaArrastada} arrastandoColuna={!!colunaArrastada} largura={larguras[chaveColuna(c)] ?? LARGURA_PADRAO} onLargura={(px) => onLargura(chaveColuna(c), px)} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
+            <Coluna key={c.chave} coluna={c} ogsInfo={ogsColuna?.(c.chave, c.nome) ?? null} onEditarOgs={onEditarOgs} vagasQtd={vagasColuna?.(c.chave).length ?? 0} custoRotulo={R.custo} resumo={resumoColuna?.(c.chave)} semDestinoQtd={c.chave === SEM_EQUIPE ? c.pessoas.filter((p) => calcSemDestino(p.equipe, pendencias[p.id])).length : 0} destaqueAtivo={!!arrastando || !!colunaArrastada} arrastandoColuna={!!colunaArrastada} largura={larguras[chaveColuna(c)] ?? LARGURA_PADRAO} onLargura={(px) => onLargura(chaveColuna(c), px)} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
               {c.pessoas.length === 0 && <p style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", padding: "10px 0" }}>{R.nenhum}</p>}
               {c.pessoas.map((p, i) => (
                 <Fragment key={p.id}>

@@ -6,6 +6,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Search, User, FileSpreadsheet, Printer } from "lucide-react";
+import RelatorioQuadroHoje from "@/components/relatorios/RelatorioQuadroHoje";
 
 function fmtDate(d: string) {
   if (!d) return "";
@@ -35,7 +36,7 @@ interface ResultRow {
   alertas: string[];
 }
 
-type FilterType = "funcionario" | "funcao" | "obra" | "encarregado";
+type FilterType = "funcionario" | "funcao" | "obra" | "encarregado" | "quadro";
 
 const hhmm = (t: string | null) => (t ? t.slice(0, 5) : "");
 const norm = (v: string | null | undefined) =>
@@ -619,10 +620,16 @@ export default function RelatorioFuncionario() {
             <Button variant={filterType === "encarregado" ? "default" : "outline"} onClick={() => resetFilters("encarregado")} className="flex-1">
               Por Encarregado
             </Button>
+            <Button variant={filterType === "quadro" ? "default" : "outline"} onClick={() => resetFilters("quadro")} className="flex-1">
+              Quadro de Hoje
+            </Button>
           </div>
         </div>
 
+        {filterType === "quadro" && profile?.company_id && <RelatorioQuadroHoje companyId={profile.company_id} />}
+
         {/* Card de filtros */}
+        {filterType !== "quadro" && (<>
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
 
           {/* Por Funcionário */}
@@ -819,6 +826,7 @@ export default function RelatorioFuncionario() {
             )}
           </div>
         )}
+        </>)}
       </div>
     </div>
   );
