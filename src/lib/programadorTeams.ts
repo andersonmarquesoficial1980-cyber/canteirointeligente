@@ -1,3 +1,4 @@
+import { loadEquipesOcultas, equipeVisivel } from "@/lib/equipesOcultas";
 type EmployeeTeam = { id: string; company_id?: string | null; equipe: string | null };
 type EquipmentTeam = { company_id?: string | null; setor: string | null };
 type Team = { id: string; nome: string; responsavel: string | null; ativa: boolean; responsavel_employee_id: string | null };
@@ -44,7 +45,8 @@ export async function fetchTeamsForCompany(
     .eq("ativa", true).order("nome");
   if (error) throw error;
   if (!data) throw new Error("Catálogo de equipes indisponível");
-  return (data as Team[]).filter(team => team.ativa && (
+  const ocultas = await loadEquipesOcultas();
+  return (data as Team[]).filter(team => team.ativa && equipeVisivel(team.nome, ocultas) && (
     usedNames.has(key(team.nome)) || !!(team.responsavel_employee_id && scopedIds.has(team.responsavel_employee_id))
   ));
 }

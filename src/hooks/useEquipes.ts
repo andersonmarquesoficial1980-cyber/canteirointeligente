@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { loadEquipesOcultas, equipeVisivel } from "@/lib/equipesOcultas";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface MembroEquipe {
@@ -23,8 +24,9 @@ export function useEquipes() {
       .eq("status", "ativo")
       .order("name");
 
+    const ocultas = await loadEquipesOcultas();
     setMembros(
-      (data || []).map((e: any) => ({
+      (data || []).filter((e: any) => equipeVisivel(e.equipe, ocultas)).map((e: any) => ({
         id: e.id,
         matricula: e.matricula || "",
         nome: e.name || "",
@@ -40,7 +42,7 @@ export function useEquipes() {
       .select("id, nome, responsavel, centro_custo")
       .eq("ativa", true)
       .order("nome");
-    setEquipesData(eqsData || []);
+    setEquipesData((eqsData || []).filter((e: any) => equipeVisivel(e.nome, ocultas)));
 
     setLoading(false);
   }, []);

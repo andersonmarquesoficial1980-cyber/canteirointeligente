@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp, Users, Plus, X, Loader2, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { invalidarEquipesOcultas } from "@/lib/equipesOcultas";
 
 interface Equipe {
   id: string;
@@ -10,6 +11,7 @@ interface Equipe {
   centro_custo: string | null;
   ativa: boolean;
   exibir_rdo_tecnico?: boolean | null;
+  ocultar_operacao?: boolean | null;
 }
 
 interface Membro {
@@ -41,6 +43,7 @@ export default function EquipesManager() {
   const [centrosCusto, setCentrosCusto] = useState<CentroCusto[]>([]);
   const [loading, setLoading] = useState(true);
   const [rdoToggleDisponivel, setRdoToggleDisponivel] = useState(true);
+  const [ocultarToggleDisponivel, setOcultarToggleDisponivel] = useState(true);
   const [expandedEquipe, setExpandedEquipe] = useState<string | null>(null);
 
   // Modal state
@@ -58,13 +61,14 @@ export default function EquipesManager() {
   async function load() {
     setLoading(true);
     const [eqsRes, { data: emps }, { data: ccs }] = await Promise.all([
-      (supabase as any).from("ci_equipes").select("id, nome, responsavel, centro_custo, ativa, exibir_rdo_tecnico").order("nome"),
+      (supabase as any).from("ci_equipes").select("id, nome, responsavel, centro_custo, ativa, exibir_rdo_tecnico, ocultar_operacao").order("nome"),
       (supabase as any).from("employees").select("id, name, matricula, role, equipe, funcoes(nome)").eq("status", "ativo").order("name"),
       (supabase as any).from("ci_centros_custo").select("id, nome").eq("ativo", true).order("nome"),
     ]);
 
     let eqs = eqsRes.data;
     if (eqsRes.error) {
+      setOcultarToggleDisponivel(false);
       // coluna exibir_rdo_tecnico ainda não existe no banco: carrega sem ela
       const legacy = await (supabase as any).from("ci_equipes").select("id, nome, responsavel, centro_custo, ativa").order("nome");
       eqs = legacy.data;
@@ -114,6 +118,17 @@ export default function EquipesManager() {
       return;
     }
     setEquipes(list => list.map(e => e.id === eq.id ? { ...e, exibir_rdo_tecnico: proximo } : e));
+  }
+
+  async function toggleOcultarOperacao(eq: Equipe) {
+    const proximo = !eq.ocultar_operacao;
+    const { error } = await (supabase as any).from("ci_equipes").update({ ocultar_operacao: proximo }).eq("id", eq.id);
+    if (error) {
+      toast({ title: "Erro ao atualizar equipe", description: error.message, variant: "destructive" });
+      return;
+    }
+    invalidarEquipesOcultas();
+    setEquipes(list => list.map(e => e.id === eq.id ? { ...e, ocultar_operacao: proximo } : e));
   }
 
   async function handleSalvar() {
@@ -215,6 +230,17 @@ export default function EquipesManager() {
                       className="w-4 h-4 accent-primary"
                     />
                     RDO Técnico
+                  </label>
+                )}
+                {ocultarToggleDisponivel && (
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 cursor-pointer" title="Oculta esta equipe e seus funcionários de RDO, Diário de Equipamentos e relatórios de equipe (nada é excluído)">
+                    <input
+                      type="checkbox"
+                      checked={!!equipe.ocultar_operacao}
+                      onChange={() => toggleOcultarOperacao(equipe)}
+                      className="w-4 h-4 accent-primary"
+                    />
+                    Ocultar nas operações
                   </label>
                 )}
                 <button

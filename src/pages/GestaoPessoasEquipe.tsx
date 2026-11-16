@@ -4,6 +4,7 @@ import { StorageImage } from "@/components/StorageMedia";
  * Abas: Todos | Por Função | Por Equipe | Por Responsável | Centro de Custo | Aniversariantes
  */
 import { useState, useEffect, useMemo } from "react";
+import { useEquipesOcultas, equipeVisivel } from "@/lib/equipesOcultas";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
   ArrowLeft, Search, ChevronRight, ChevronDown, ChevronUp, X, Loader2, FileSpreadsheet, FileText
@@ -1297,6 +1298,8 @@ export default function GestaoPessoasEquipe() {
     setSearchParams(next, { replace: true });
   }, [aba, busca, origem, setSearchParams]);
 
+  const equipesOcultas = useEquipesOcultas();
+  const [mostrarEquipesOcultas, setMostrarEquipesOcultas] = useState(false);
   const porFuncao: Record<string, Funcionario[]> = {};
   const porEquipe: Record<string, Funcionario[]> = {};
   const porResp: Record<string, Funcionario[]> = {};
@@ -1307,8 +1310,10 @@ export default function GestaoPessoasEquipe() {
     if (!porFuncao[fb]) porFuncao[fb] = [];
     porFuncao[fb].push(f);
     const eq = f.equipe || "SEM EQUIPE";
-    if (!porEquipe[eq]) porEquipe[eq] = [];
-    porEquipe[eq].push(f);
+    if (mostrarEquipesOcultas || equipeVisivel(f.equipe, equipesOcultas)) {
+      if (!porEquipe[eq]) porEquipe[eq] = [];
+      porEquipe[eq].push(f);
+    }
     const resp = f.responsavel || "SEM RESPONSÁVEL";
     if (!porResp[resp]) porResp[resp] = [];
     porResp[resp].push(f);
@@ -1691,6 +1696,13 @@ export default function GestaoPessoasEquipe() {
                         <FileText size={13} /> PDF geral
                       </span>
                     </button>
+
+                    {equipesOcultas.size > 0 && (
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, color: mostrarEquipesOcultas ? "#f97316" : "#64748b" }}>
+                        <input type="checkbox" checked={mostrarEquipesOcultas} onChange={e => setMostrarEquipesOcultas(e.target.checked)} style={{ accentColor: "#f97316" }} />
+                        Mostrar equipes administrativas
+                      </label>
+                    )}
 
                     {isAdmin && (
                       <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, color: mostrarSalario ? "#f97316" : "#64748b" }}>

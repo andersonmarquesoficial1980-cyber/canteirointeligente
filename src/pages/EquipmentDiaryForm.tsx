@@ -1,4 +1,5 @@
 import { StorageImage } from "@/components/StorageMedia";
+import { loadEquipesOcultas, equipeVisivel } from "@/lib/equipesOcultas";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -622,12 +623,13 @@ export default function EquipmentDiaryForm() {
       }
       const { data, error } = await (supabase as any)
         .from("employees")
-        .select("id, matricula, name, role, status")
+        .select("id, matricula, name, role, equipe, status")
         .eq("status", "ativo")
         .order("name");
       if (error) throw error;
       // Normaliza para o formato {id, nome, funcao} usado no form
-      return ((data || []) as any[]).map((f: any) => ({
+      const ocultas = await loadEquipesOcultas();
+      return ((data || []) as any[]).filter((f: any) => equipeVisivel(f.equipe, ocultas)).map((f: any) => ({
         id: f.id,
         matricula: f.matricula ?? "",
         nome: f.name,

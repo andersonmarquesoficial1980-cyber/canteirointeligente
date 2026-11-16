@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { loadEquipesOcultas, equipeVisivel } from "@/lib/equipesOcultas";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, MapPin, CalendarDays, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -316,7 +317,8 @@ export default function GestaoFrotasDashboardRdo() {
         .select("nome")
         .eq("ativa", true)
         .order("nome");
-      setEquipesCadastro((eqsCad || []).map((e: any) => (e.nome || "").trim()).filter(Boolean));
+      const ocultas = await loadEquipesOcultas();
+      setEquipesCadastro((eqsCad || []).map((e: any) => (e.nome || "").trim()).filter((n: string) => n && equipeVisivel(n, ocultas)));
 
       // 1. RDOs do período
       const { data: rdos } = await (supabase as any)

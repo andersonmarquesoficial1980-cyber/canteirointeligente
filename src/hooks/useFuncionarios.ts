@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { loadEquipesOcultas, equipeVisivel } from "@/lib/equipesOcultas";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Funcionario {
@@ -18,11 +19,12 @@ export function useFuncionarios() {
     // Fonte única: tabela employees com join para funcoes e empresas_parceiras
     const { data, error } = await (supabase as any)
       .from("employees")
-      .select("id, matricula, name, role, status, origem, empresa_nome, funcao_id, funcoes(nome), empresas_parceiras(nome)")
+      .select("id, matricula, name, role, equipe, status, origem, empresa_nome, funcao_id, funcoes(nome), empresas_parceiras(nome)")
       .eq("status", "ativo")
       .order("name", { ascending: true });
     if (!error && data) {
-      const normalized = (data as any[]).map(f => ({
+      const ocultas = await loadEquipesOcultas();
+      const normalized = (data as any[]).filter(f => equipeVisivel(f.equipe, ocultas)).map(f => ({
         id: f.id,
         matricula: f.matricula ?? "",
         nome: f.name,

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { loadEquipesOcultas, equipeVisivel } from "@/lib/equipesOcultas";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
@@ -255,7 +256,8 @@ export default function RdoForm() {
       const { data, error } = await (supabase as any).from("employees")
         .select("equipe").eq("company_id", profile.company_id).eq("status", "ativo")
         .not("equipe", "is", null).order("equipe");
-      if (!cancelled && !error) setEquipesDisponiveis([...new Set((data || []).map((row: any) => String(row.equipe || "").trim()).filter(Boolean))].sort() as string[]);
+      const ocultas = await loadEquipesOcultas();
+      if (!cancelled && !error) setEquipesDisponiveis([...new Set((data || []).filter((row: any) => equipeVisivel(row.equipe, ocultas)).map((row: any) => String(row.equipe || "").trim()).filter(Boolean))].sort() as string[]);
     })();
     return () => { cancelled = true; };
   }, [profile?.company_id]);

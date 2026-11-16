@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { loadEquipesOcultas, equipeVisivel } from "@/lib/equipesOcultas";
 import { useNavigate } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Search, Package, Maximize2, Minimize2, Download, Trash2 } from "lucide-react";
@@ -773,7 +774,8 @@ export default function GestaoFrotasDashboard() {
     }
 
     if (equipesRes?.data) {
-      const rows = (equipesRes.data as any[]) || [];
+      const ocultas = await loadEquipesOcultas();
+      const rows = ((equipesRes.data as any[]) || []).filter((e) => equipeVisivel(e?.nome, ocultas));
       setEquipesRows(rows);
 
       const nomes = rows

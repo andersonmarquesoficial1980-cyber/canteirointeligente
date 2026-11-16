@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { loadEquipesOcultas, equipeVisivel } from "@/lib/equipesOcultas";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -273,9 +274,10 @@ export default function GestaoFrotasHome() {
 
     if (error) return;
 
+    const ocultas = await loadEquipesOcultas();
     const nomes = (data || [])
       .map((e: any) => (e?.nome || "").trim())
-      .filter(Boolean);
+      .filter((n: string) => n && equipeVisivel(n, ocultas));
 
     setEquipesCadastro(nomes);
   }

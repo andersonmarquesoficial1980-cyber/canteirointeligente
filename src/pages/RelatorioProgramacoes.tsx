@@ -3,6 +3,7 @@
 // Cruzamento programado vs executado (diários de equipamento)
 
 import { useState, useEffect, useMemo } from "react";
+import { loadEquipesOcultas, equipeVisivel } from "@/lib/equipesOcultas";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -130,7 +131,8 @@ export default function RelatorioProgramacoes() {
       setProgramacoes(lista);
 
       // equipes únicas do histórico no período
-      const eqs = [...new Set(lista.map((p: Programacao) => (p.equipe || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+      const ocultasEq = await loadEquipesOcultas();
+      const eqs = [...new Set(lista.map((p: Programacao) => (p.equipe || "").trim()).filter((n: string) => n && equipeVisivel(n, ocultasEq)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
       setEquipesHistorico(eqs);
 
       // catálogo oficial de equipes ativas (Painel de Controle)
@@ -141,7 +143,7 @@ export default function RelatorioProgramacoes() {
         .order("nome");
       setEquipesCadastro(((eqsCad || []) as EquipeCadastro[])
         .map((e) => (e.nome || "").trim())
-        .filter(Boolean));
+        .filter((n) => n && equipeVisivel(n, ocultasEq)));
 
       // OGSs programadas nesse período (para cruzar com diários)
       const ogsList = lista.map((p: Programacao) => p.ogs).filter(Boolean);
