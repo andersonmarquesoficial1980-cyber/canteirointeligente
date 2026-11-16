@@ -8,8 +8,9 @@ import { useEquipeOgs } from "@/hooks/useEquipeOgs";
 import { toLocalISODate } from "@/lib/date-local";
 import { programadorEmployeesQuery } from "@/lib/programadorTeams";
 import { chaveEquipe } from "@/lib/quadroEquipes";
+import { useEquipesOcultas } from "@/lib/equipesOcultas";
 import {
-  agruparPorEquipe, dataBR, gerarCsv, gerarHtmlPdf, montarLinhasQuadroHoje, statusComoProgramador, type PessoaHoje,
+  agruparPorEquipe, dataBR, filtrarEquipesOcultas, gerarCsv, gerarHtmlPdf, montarLinhasQuadroHoje, statusComoProgramador, type PessoaHoje,
 } from "@/lib/quadroHoje";
 
 const TITULO = "Quadro de Hoje — Localização de Pessoal por Equipe";
@@ -57,10 +58,13 @@ export default function RelatorioQuadroHoje({ companyId }: { companyId: string }
   }, [companyId]);
 
   const ultimaMovAlocacao = useMemo(() => Object.fromEntries(alocacoes.map((a) => [a.employee_id, a.data_inicio])), [alocacoes]);
-  const todas = useMemo(
+  const ocultasAdmin = useEquipesOcultas();
+  const [mostrarAdmin, setMostrarAdmin] = useState(false);
+  const completas = useMemo(
     () => montarLinhasQuadroHoje({ pessoas: projetadas as PessoaHoje[], ogs, ultimaMovHistorico, ultimaMovAlocacao }),
     [projetadas, ogs, ultimaMovHistorico, ultimaMovAlocacao],
   );
+  const todas = useMemo(() => (mostrarAdmin ? completas : filtrarEquipesOcultas(completas, ocultasAdmin)), [completas, mostrarAdmin, ocultasAdmin]);
   const equipes = useMemo(() => agruparPorEquipe(todas, ogs), [todas, ogs]);
 
   const termo = chaveEquipe(busca);
@@ -124,6 +128,11 @@ export default function RelatorioQuadroHoje({ companyId }: { companyId: string }
             })}
           </div>
         </div>
+
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={mostrarAdmin} onChange={(e) => { setMostrarAdmin(e.target.checked); setSelecionadas([]); }} />
+          Mostrar equipes administrativas (ocultas em Admin &gt; Equipes) e DEMITIDOS
+        </label>
 
         <div className="relative max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-3.5 text-muted-foreground" />

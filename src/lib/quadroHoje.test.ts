@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agruparPorEquipe, celulasLinha, dataBR, gerarCsv, gerarHtmlPdf, maisRecente, montarLinhasQuadroHoje, normalizarOgs, statusComoProgramador } from "./quadroHoje";
+import { filtrarEquipesOcultas, agruparPorEquipe, celulasLinha, dataBR, gerarCsv, gerarHtmlPdf, maisRecente, montarLinhasQuadroHoje, normalizarOgs, statusComoProgramador } from "./quadroHoje";
 import { projetarPessoas } from "./quadroAlocacao";
 
 const p = (id: string, name: string, equipe: string | null, status = "ativo") => ({ id, name, matricula: id, role: "AJUDANTE", equipe, status, company_id: "c1" });
@@ -43,5 +43,11 @@ describe("quadroHoje", () => {
     expect(normalizarOgs("   ")).toBeNull();
     expect(statusComoProgramador("Falta")).toBe("afastado");
     expect(statusComoProgramador("FÉRIAS")).toBe("ferias");
+  });
+  it("oculta equipes administrativas, DEMITIDOS e quem está em férias/afastado vindo delas", () => {
+    const base = { ogs: "", matricula: "", funcao: "", situacao: "", origem: "", ultimaMov: "" };
+    const l = (id: string, equipe: string, origem = "") => ({ ...base, id, nome: id, equipe, origem });
+    const r = filtrarEquipesOcultas([l("a", "FINANCEIRO"), l("b", "DEMITIDOS"), l("c", "FÉRIAS", "Jurídico"), l("d", "AELSON"), l("e", "FÉRIAS", "AELSON")], new Set(["financeiro", "jurídico"]));
+    expect(r.map((x) => x.id)).toEqual(["d", "e"]);
   });
 });

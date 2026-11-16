@@ -158,3 +158,12 @@ export function gerarHtmlPdf(titulo: string, hojeISO: string, blocos: readonly B
   <p class="meta"><strong>Data:</strong> ${dataBR(hojeISO)} | <strong>Total:</strong> ${total} pessoa(s) em ${blocos.length} equipe(s) | Posição atual do Quadro Pessoas (WF Programador)</p>
   ${corpo}</body></html>`;
 }
+
+/**
+ * Equipes marcadas em Admin > Equipes ("Ocultar nas operações") saem do relatório, e também quem está em
+ * Férias/Afastados/Emprestado vindo delas. "DEMITIDOS" (equipe-lixeira do cadastro) conta como oculta.
+ */
+export function filtrarEquipesOcultas(linhas: readonly LinhaQuadroHoje[], ocultas: ReadonlySet<string>): LinhaQuadroHoje[] {
+  const oculta = (nome: string) => !!nome && (ocultas.has(nome.trim().toLocaleLowerCase("pt-BR")) || chaveEquipe(nome) === "demitidos");
+  return linhas.filter((l) => !oculta(l.equipe) && !oculta(l.origem));
+}
