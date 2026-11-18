@@ -1,5 +1,6 @@
 import { StorageImage } from "@/components/StorageMedia";
-import { loadEquipesOcultas, equipeVisivel } from "@/lib/equipesOcultas";
+import { useEquipesOcultas } from "@/lib/equipesOcultas";
+import { filtrarOperadoresDiario } from "@/lib/equipmentDiaryOperators";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -236,6 +237,7 @@ export default function EquipmentDiaryForm() {
   const { categorias } = useEquipamentoTipos();
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
+  const equipesOcultas = useEquipesOcultas();
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false); // bloqueia double-submit antes do React re-renderizar
   const [loadingEditData, setLoadingEditData] = useState(false);
@@ -627,13 +629,13 @@ export default function EquipmentDiaryForm() {
         .eq("status", "ativo")
         .order("name");
       if (error) throw error;
-      // Normaliza para o formato {id, nome, funcao} usado no form
-      const ocultas = await loadEquipesOcultas();
-      return ((data || []) as any[]).filter((f: any) => equipeVisivel(f.equipe, ocultas)).map((f: any) => ({
+      // Mantém a equipe no objeto: habilitação explícita tem precedência sobre equipe oculta.
+      return ((data || []) as any[]).map((f: any) => ({
         id: f.id,
         matricula: f.matricula ?? "",
         nome: f.name,
         funcao: f.role ?? "",
+        equipe: f.equipe ?? "",
       }));
     },
     staleTime: 0,
@@ -678,18 +680,10 @@ export default function EquipmentDiaryForm() {
     enabled: !!effectiveCompanyId && !!equipmentType,
   });
 
-  const hasEnabledOperatorsForType = enabledOperatorIds.length > 0;
-
   const funcionariosForType = useMemo(() => {
     if (!Array.isArray(funcionarios)) return [];
-    // Se ainda não carregou os IDs habilitados, mostra todos para não bloquear
-    if (!hasEnabledOperatorsForType) return funcionarios;
-    const enabledSet = new Set(enabledOperatorIds || []);
-    const filtered = funcionarios.filter((f: any) => f && enabledSet.has(f.id));
-    // Fallback: se o filtro resultar em lista vazia mas há funcionários, exibe todos
-    // (evita dropdown vazio por race condition entre as queries)
-    return filtered.length > 0 ? filtered : funcionarios;
-  }, [funcionarios, enabledOperatorIds, hasEnabledOperatorsForType]);
+    return filtrarOperadoresDiario(funcionarios, equipesOcultas, enabledOperatorIds);
+  }, [funcionarios, equipesOcultas, enabledOperatorIds]);
 
   // Fetch fornecedores from DB for supplier selects
   const { data: fornecedoresDb = [] } = useQuery({
