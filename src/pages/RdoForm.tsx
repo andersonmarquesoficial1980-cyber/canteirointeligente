@@ -1633,6 +1633,9 @@ export default function RdoForm() {
       }
       if (tipoRdo === "CAUQ" && header.status_obra === "Trabalhou" && equipesDisponiveis.length > 0 && !header.equipe) {
         toast({ title: "Selecione a equipe de pavimentação", description: "A equipe permite conferir os tipos previstos.", variant: "destructive" });
+        const el = document.getElementById("rdo-equipe");
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        (el as HTMLSelectElement | null)?.focus();
         return;
       }
       if (conferenciaLoading && isOnline) {
@@ -1799,7 +1802,7 @@ export default function RdoForm() {
     }
 
     if (!semProducao && ["CAUQ", "INFRAESTRUTURA", "INFRA", "PAVIMENTAÇÃO", "PAVIMENTACAO"].includes(tipoRdo || "")) {
-      const getInvalidEspessura = (esp: number | null) => esp !== null && esp > 0 && esp < 1;
+      const getInvalidEspessura = (esp: number | null) => esp !== null && esp > 0 && esp < 0.5; // 0,5 cm (meio cm) é válido; < 0,5 é provável metro (0,17)
 
       if (tipoRdo === "INFRAESTRUTURA" || tipoRdo === "INFRA") {
         const invalidInfra = infraProducao
@@ -2374,6 +2377,7 @@ export default function RdoForm() {
                   onChangeGlobalEntrada={setGlobalEntrada}
                   onChangeGlobalSaida={setGlobalSaida}
                   encarregado={header.encarregado}
+                  onEquipeCarregada={(nome) => { if (!header.equipe) handleHeaderChange("equipe", nome); }}
                 />}
                 {!isPatioRdo && (
                   <SectionEfetivoTerceirizado

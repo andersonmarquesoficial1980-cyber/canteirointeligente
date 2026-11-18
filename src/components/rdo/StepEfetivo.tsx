@@ -26,9 +26,10 @@ interface StepEfetivoProps {
   onChangeGlobalEntrada: (v: string) => void;
   onChangeGlobalSaida: (v: string) => void;
   encarregado?: string; // para auto-match de equipe
+  onEquipeCarregada?: (nomeEquipe: string) => void;
 }
 
-export default function StepEfetivo({ entries, onChange, globalEntrada, globalSaida, onChangeGlobalEntrada, onChangeGlobalSaida, encarregado }: StepEfetivoProps) {
+export default function StepEfetivo({ entries, onChange, globalEntrada, globalSaida, onChangeGlobalEntrada, onChangeGlobalSaida, encarregado, onEquipeCarregada }: StepEfetivoProps) {
   const { funcionarios, funcoes, loading } = useFuncionarios();
   const { equipes, getMembrosDeEquipe, getMembrosDoResponsavel, loading: loadingEquipes } = useEquipes();
   const addBtnRef = useRef<HTMLButtonElement>(null);
@@ -48,6 +49,7 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
   const carregarEquipe = (nomeEquipe: string) => {
     const membros = getMembrosDeEquipe(nomeEquipe);
     if (membros.length === 0) return;
+    onEquipeCarregada?.(nomeEquipe);
     const porFuncao: Record<string, { nomes: string[]; matriculas: string[]; ids: string[] }> = {};
     membros.forEach(m => {
       const f = m.funcao || "SEM FUNÇÃO";
