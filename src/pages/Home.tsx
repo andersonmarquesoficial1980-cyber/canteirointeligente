@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, Crown, LogOut, User } from "lucide-react";
 import { Spotlight } from "@/components/Spotlight";
+import { DiaryDeadlineBanner } from "@/components/DiaryDeadlineAlerts";
 
 import logoCi from "@/assets/logo-workflux.png";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -44,6 +45,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pt-24 pb-12 bg-page relative">
+
+      <div className="w-full max-w-2xl relative z-10 mb-4"><DiaryDeadlineBanner /></div>
 
       {/* Spotlight — Busca Global */}
       <div className="w-full max-w-2xl relative z-10 mb-6">

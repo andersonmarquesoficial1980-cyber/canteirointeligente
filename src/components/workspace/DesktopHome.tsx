@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DiaryDeadlineBanner } from "@/components/DiaryDeadlineAlerts";
 import { useNavigate } from "react-router-dom";
 import { useWorkspaceShortcuts } from "@/hooks/useWorkspaceShortcuts";
 import { ArrowUpRight, LogOut, Search, Star, Settings2 } from "lucide-react";
@@ -26,6 +27,7 @@ export function DesktopHome({ access, onLogout, loggingOut }: { access: HubAcces
       </div>
     </header>
     <main className="px-8 py-8 max-w-[1680px] mx-auto">
+      <div className="mb-6 max-w-3xl"><DiaryDeadlineBanner /></div>
       <div className="flex justify-between items-start gap-8 mb-8">
         <div><p className="text-xs font-semibold uppercase tracking-widest text-primary mb-3">Campo e gestão</p><h1 className="text-3xl font-semibold tracking-tight">Sua área de trabalho</h1><p className="text-muted-foreground mt-2">Seus acessos mais usados em um só lugar. Todos os módulos continuam no menu lateral.</p></div>
         {access.companyLogo && <img src={access.companyLogo} alt="Cliente" className="max-w-40 max-h-16 object-contain" />}

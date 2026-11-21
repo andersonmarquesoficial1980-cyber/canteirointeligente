@@ -14,6 +14,7 @@ import { offlineDb } from "@/lib/offlineDb";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
+import { DiaryDeadlineDialog } from "@/components/DiaryDeadlineAlerts";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
@@ -304,7 +305,10 @@ export default function EquipmentDiaryForm() {
 
   // Form state
   const [selectedFleet, setSelectedFleet] = useState("");
-  const [date, setDate] = useState(toSaoPauloISODate);
+  const [date, setDate] = useState(() => {
+    const fromQuery = searchParams.get("data");
+    return fromQuery && /^\d{4}-\d{2}-\d{2}$/.test(fromQuery) ? fromQuery : toSaoPauloISODate();
+  });
   const {
     isBlocked: isDateBlocked,
     isLoading: isUnlockLoading,
@@ -3193,6 +3197,8 @@ export default function EquipmentDiaryForm() {
             </div>
           )}
         </Section>
+
+        <DiaryDeadlineDialog enabled={!isEditMode} />
 
         {isUnlockLoading && !isEditMode && (
           <div className="rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">

@@ -33,6 +33,7 @@ import { buildHtmlReport } from "@/lib/buildHtmlReport";
 import { sanitizeNotaFiscalNumero } from "@/lib/nf";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
+import { DiaryDeadlineDialog } from "@/components/DiaryDeadlineAlerts";
 import { findMissingStandardTypes, findDiarySuggestions, type Exception as EquipmentException, type Diary as RelatedDiary } from "@/lib/rdoEquipmentReview";
 
 const fmtBR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -132,7 +133,7 @@ export default function RdoForm() {
 
   // Header
   const [header, setHeader] = useState({
-    data: today,
+    data: /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("data") || "") ? (searchParams.get("data") as string) : today,
     obra_nome: "",
     ogs_id: "",
     equipe: "",
@@ -2222,6 +2223,8 @@ export default function RdoForm() {
             </div>
           </div>
         )}
+
+        <DiaryDeadlineDialog enabled={!isEditMode} />
 
         {tipoRdo && !isPatioRdo && isUnlockLoading && !isEditMode && (
           <div className="mx-4 rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">

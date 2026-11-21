@@ -9,6 +9,7 @@ import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { DiaryDeadlineBanner } from "@/components/DiaryDeadlineAlerts";
 
 import imgFresadora from "@/assets/equip-fresadora.png";
 import imgBobcat from "@/assets/equip-bobcat.webp";
@@ -214,6 +215,7 @@ export default function EquipmentHome() {
         <div className="px-8 pb-3"><NavigationTrail trail={trail} onSelect={goTo} /></div>
       </header>
       <main className="mx-auto max-w-[1680px] px-8 py-8 space-y-8">
+        <DiaryDeadlineBanner />
         {temOrdens && <section aria-label="Ordens de Transporte">
           <h2 className="text-lg font-semibold mb-4">Ordens de Transporte {ordens.length > 0 && <span className="text-sm text-muted-foreground">({ordens.length})</span>}</h2>
           {ordens.length === 0 ? <p className="rounded-xl border border-dashed border-border bg-card p-5 text-sm text-muted-foreground">Nenhuma ordem de transporte pendente para você.</p> : <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">{ordens.map(o => <OrdemTransporteCard key={o.id} ordem={o} />)}</div>}
@@ -258,6 +260,8 @@ export default function EquipmentHome() {
       </header>
 
       <div className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full space-y-6">
+
+        <DiaryDeadlineBanner />
 
         {/* Ordens de Transporte — só para quem tem permissão "ordens_transporte" */}
         {temOrdens && (
