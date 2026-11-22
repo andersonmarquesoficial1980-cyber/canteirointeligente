@@ -1,6 +1,6 @@
 // CRITICAL CORE: DO NOT ALTER MODULE ARRAY, VERTICAL LAYOUT OR USER CREATION FLOW.
 // @UI-LOCK: MANDATORY MODULES AND VERTICAL LAYOUT. DO NOT REMOVE.
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,130 +21,130 @@ import { supabase } from "@/integrations/supabase/client";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import TrocarSenha from "./pages/TrocarSenha";
-import Configurar2FA from "./pages/Configurar2FA";
+const Configurar2FA = lazy(() => import("./pages/Configurar2FA"));
 import Verificar2FA from "./pages/Verificar2FA";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
-import Perfil from "./pages/Perfil";
-import Index from "./pages/Index";
-import AbastecimentoHome from "./pages/AbastecimentoHome";
-import RefeicoesHome from "./pages/RefeicoesHome";
-import AdminConfiguracoes from "./pages/AdminConfiguracoes";
-import AdminLancamentos from "./pages/AdminLancamentos";
-import BuscaEquipamentos from "./pages/BuscaEquipamentos";
-import BuscaRdo from "./pages/BuscaRdo";
-import DashboardAdmin from "./pages/DashboardAdmin";
-import DemandasHome from "./pages/DemandasHome";
-import DetalhesDemanda from "./pages/DetalhesDemanda";
-import Diretorio from "./pages/Diretorio";
-import DocumentosHome from "./pages/DocumentosHome";
-import DocumentosIntegracao from "./pages/DocumentosIntegracao";
-import EquipmentDiaryForm from "./pages/EquipmentDiaryForm";
-import EquipmentHome from "./pages/EquipmentHome";
-import EspelhoPonto from "./pages/EspelhoPonto";
-import PontoSolicitacoes from "./pages/PontoSolicitacoes";
-import PontoAprovacoes from "./pages/PontoAprovacoes";
-import BancoHoras from "./pages/BancoHoras";
-import ExportarProtheus from "./pages/ExportarProtheus";
-import FichaFuncionario from "./pages/FichaFuncionario";
-import FilaManutencao from "./pages/FilaManutencao";
-import FrotaNovo from "./pages/FrotaNovo";
-import GestaoFrotasDashboard from "./pages/GestaoFrotasDashboard";
-import GestaoFrotasDashboardRdo from "./pages/GestaoFrotasDashboardRdo";
-import GestaoFrotasHome from "./pages/GestaoFrotasHome";
-import GestaoFrotasRastreamento from "./pages/GestaoFrotasRastreamento";
-import GestaoFrotasMultas from "./pages/GestaoFrotasMultas";
-import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
-import EquipamentoProntuario from "./pages/EquipamentoProntuario";
-import EquipamentoOcorrencias from "./pages/EquipamentoOcorrencias";
-import ManutencaoFalhas from "./pages/ManutencaoFalhas";
-import GestaoFrotasProducao from "./pages/GestaoFrotasProducao";
-import DashboardConfiabilidade from "./pages/DashboardConfiabilidade";
-import ManutencaoHorarios from "./pages/ManutencaoHorarios";
-import OcorrenciaDetalhe from "./pages/OcorrenciaDetalhe";
-import MedicoesTerceiros from "./pages/MedicoesTerceiros";
-import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
-import GestaoPessoasEquipe from "./pages/GestaoPessoasEquipe";
-import GestaoPessoasCandidatos from "./pages/GestaoPessoasCandidatos";
-import GestaoPessoasGerenciamentoPonto from "./pages/GestaoPessoasGerenciamentoPonto";
-import GestaoPessoasPontoPdf from "./pages/GestaoPessoasPontoPdf";
-import GestaoPessoasGerenciamentoVT from "./pages/GestaoPessoasGerenciamentoVT";
-import GestaoPessoasPendencias from "./pages/GestaoPessoasPendencias";
-import FichaCandidato from "./pages/FichaCandidato";
-import ProgramacaoFerias from "./pages/ProgramacaoFerias";
-import WhatsAppInbox from "./pages/WhatsAppInbox";
-import SSTHome from "./pages/SSTHome";
-import SSTInspecoes from "./pages/SSTInspecoes";
-import SSTForm from "./pages/SSTForm";
-import SSTIntegracaoHome from "./pages/SSTIntegracaoHome";
-import SSTFuncionariosDocs from "./pages/SSTFuncionariosDocs";
-import SSTObrasIntegracao from "./pages/SSTObrasIntegracao";
-import SSTObrasVisualizacao from "./pages/SSTObrasVisualizacao";
-import CarreteirosQRScan from "./pages/CarreteirosQRScan";
-import CarreteirosQRPrint from "./pages/CarreteirosQRPrint";
-import ManutencaoDocumentos from "./pages/ManutencaoDocumentos";
-import ManutencaoHome from "./pages/ManutencaoHome";
-import ManutencaoOS from "./pages/ManutencaoOS";
-import MeusLancamentos from "./pages/MeusLancamentos";
-import MinhasDemandas from "./pages/MinhasDemandas";
-import OperadoresHabilitados from "./pages/OperadoresHabilitados";
-import ProgramadorHome from "./pages/ProgramadorHome";
-import ProgramacaoNoturna from "./pages/ProgramacaoNoturna";
-import ProgramadorPendencias from "./pages/ProgramadorPendencias";
-import RelatorioProgramacoes from "./pages/RelatorioProgramacoes";
-import TransporteEquipamentos from "./pages/TransporteEquipamentos";
-import RdoForm from "./pages/RdoForm";
-import RegistrarPonto from "./pages/RegistrarPonto";
-import RelatorioAbastecimento from "./pages/RelatorioAbastecimento";
-import RelatorioEquipamento from "./pages/RelatorioEquipamento";
-import RelatorioManutencao from "./pages/RelatorioManutencao";
-import RelatorioRdo from "./pages/RelatorioRdo";
-import RelatorioTransportes from "./pages/RelatorioTransportes";
-import RelatoriosHome from "./pages/RelatoriosHome";
-import SuperAdmin from "./pages/SuperAdmin";
-import SuprimentosHome from "./pages/SuprimentosHome";
-import MedicoesHome from "./pages/MedicoesHome";
-import AdminRolesPage from "./pages/AdminRolesPage";
-import RelatorioCarreteiros from "./pages/RelatorioCarreteiros";
-import RelatorioFuncionario from "./pages/RelatorioFuncionario";
-import RelatorioMdoPeriodo from "./pages/RelatorioMdoPeriodo";
-import RelatorioPendenciasPessoal from "./pages/RelatorioPendenciasPessoal";
-import RelatorioFuncionariosPersonalizado from "./pages/RelatorioFuncionariosPersonalizado";
-import RelatorioEquipamentosPersonalizado from "./pages/RelatorioEquipamentosPersonalizado";
-import RelatorioEquipamentosRdo from "./pages/RelatorioEquipamentosRdo";
-import RelatorioNotasFiscais from "./pages/RelatorioNotasFiscais";
-import RelatorioNotasFiscaisConcreto from "./pages/RelatorioNotasFiscaisConcreto";
-import RelatorioProducaoInfra from "./pages/RelatorioProducaoInfra";
-import RelatorioProducaoPavimentacao from "./pages/RelatorioProducaoPavimentacao";
-import RelatorioChecklist from "./pages/RelatorioChecklist";
-import RelatorioControleLancamentos from "./pages/RelatorioControleLancamentos";
-import RelatorioDivergenciasRdoDiarios from "./pages/RelatorioDivergenciasRdoDiarios";
-import RelatorioControleRdo from "./pages/RelatorioControleRdo";
-import RelatorioRdoTecnicoDashboard from "./pages/RelatorioRdoTecnicoDashboard";
-import TrajetoVT from "./pages/TrajetoVT";
-import TruckerHome from "./pages/TruckerHome";
-import ValeTransporte from "./pages/ValeTransporte";
-import VisualizarLancamento from "./pages/VisualizarLancamento";
-import VisualizarRdo from "./pages/VisualizarRdo";
-import EngHome from "./pages/EngHome";
-import EncHome from "./pages/EncHome";
-import EncValidarRdo from "./pages/EncValidarRdo";
-import DesbloqueioLogin from "./pages/DesbloqueioLogin";
-import EncEquipamentos from "./pages/EncEquipamentos";
-import EngValidarRdo from "./pages/EngValidarRdo";
-import EngValidacoes from "./pages/EngValidacoes";
-import EncValidacoes from "./pages/EncValidacoes";
-import EngRdoTecnico from "./pages/EngRdoTecnico";
-import EngRdoTecnicoHistorico from "./pages/EngRdoTecnicoHistorico";
-import EngRdoTecnicoDetalhe from "./pages/EngRdoTecnicoDetalhe";
-import EngRdoTecnicoEditar from "./pages/EngRdoTecnicoEditar";
-import WFDashboards from "./pages/WFDashboards";
-import DashboardObras from "./pages/DashboardObras";
-import CentralOperacoes from "./pages/CentralOperacoes";
-import DashboardManutencao from "./pages/DashboardManutencao";
-import DashboardFrota from "./pages/DashboardFrota";
-import OrcamentosHome from "./pages/OrcamentosHome";
-import PlanejamentoHome from "./pages/PlanejamentoHome";
+const Perfil = lazy(() => import("./pages/Perfil"));
+const Index = lazy(() => import("./pages/Index"));
+const AbastecimentoHome = lazy(() => import("./pages/AbastecimentoHome"));
+const RefeicoesHome = lazy(() => import("./pages/RefeicoesHome"));
+const AdminConfiguracoes = lazy(() => import("./pages/AdminConfiguracoes"));
+const AdminLancamentos = lazy(() => import("./pages/AdminLancamentos"));
+const BuscaEquipamentos = lazy(() => import("./pages/BuscaEquipamentos"));
+const BuscaRdo = lazy(() => import("./pages/BuscaRdo"));
+const DashboardAdmin = lazy(() => import("./pages/DashboardAdmin"));
+const DemandasHome = lazy(() => import("./pages/DemandasHome"));
+const DetalhesDemanda = lazy(() => import("./pages/DetalhesDemanda"));
+const Diretorio = lazy(() => import("./pages/Diretorio"));
+const DocumentosHome = lazy(() => import("./pages/DocumentosHome"));
+const DocumentosIntegracao = lazy(() => import("./pages/DocumentosIntegracao"));
+const EquipmentDiaryForm = lazy(() => import("./pages/EquipmentDiaryForm"));
+const EquipmentHome = lazy(() => import("./pages/EquipmentHome"));
+const EspelhoPonto = lazy(() => import("./pages/EspelhoPonto"));
+const PontoSolicitacoes = lazy(() => import("./pages/PontoSolicitacoes"));
+const PontoAprovacoes = lazy(() => import("./pages/PontoAprovacoes"));
+const BancoHoras = lazy(() => import("./pages/BancoHoras"));
+const ExportarProtheus = lazy(() => import("./pages/ExportarProtheus"));
+const FichaFuncionario = lazy(() => import("./pages/FichaFuncionario"));
+const FilaManutencao = lazy(() => import("./pages/FilaManutencao"));
+const FrotaNovo = lazy(() => import("./pages/FrotaNovo"));
+const GestaoFrotasDashboard = lazy(() => import("./pages/GestaoFrotasDashboard"));
+const GestaoFrotasDashboardRdo = lazy(() => import("./pages/GestaoFrotasDashboardRdo"));
+const GestaoFrotasHome = lazy(() => import("./pages/GestaoFrotasHome"));
+const GestaoFrotasRastreamento = lazy(() => import("./pages/GestaoFrotasRastreamento"));
+const GestaoFrotasMultas = lazy(() => import("./pages/GestaoFrotasMultas"));
+const GestaoFrotasVeiculo = lazy(() => import("./pages/GestaoFrotasVeiculo"));
+const EquipamentoProntuario = lazy(() => import("./pages/EquipamentoProntuario"));
+const EquipamentoOcorrencias = lazy(() => import("./pages/EquipamentoOcorrencias"));
+const ManutencaoFalhas = lazy(() => import("./pages/ManutencaoFalhas"));
+const GestaoFrotasProducao = lazy(() => import("./pages/GestaoFrotasProducao"));
+const DashboardConfiabilidade = lazy(() => import("./pages/DashboardConfiabilidade"));
+const ManutencaoHorarios = lazy(() => import("./pages/ManutencaoHorarios"));
+const OcorrenciaDetalhe = lazy(() => import("./pages/OcorrenciaDetalhe"));
+const MedicoesTerceiros = lazy(() => import("./pages/MedicoesTerceiros"));
+const GestaoPessoasDashboard = lazy(() => import("./pages/GestaoPessoasDashboard"));
+const GestaoPessoasEquipe = lazy(() => import("./pages/GestaoPessoasEquipe"));
+const GestaoPessoasCandidatos = lazy(() => import("./pages/GestaoPessoasCandidatos"));
+const GestaoPessoasGerenciamentoPonto = lazy(() => import("./pages/GestaoPessoasGerenciamentoPonto"));
+const GestaoPessoasPontoPdf = lazy(() => import("./pages/GestaoPessoasPontoPdf"));
+const GestaoPessoasGerenciamentoVT = lazy(() => import("./pages/GestaoPessoasGerenciamentoVT"));
+const GestaoPessoasPendencias = lazy(() => import("./pages/GestaoPessoasPendencias"));
+const FichaCandidato = lazy(() => import("./pages/FichaCandidato"));
+const ProgramacaoFerias = lazy(() => import("./pages/ProgramacaoFerias"));
+const WhatsAppInbox = lazy(() => import("./pages/WhatsAppInbox"));
+const SSTHome = lazy(() => import("./pages/SSTHome"));
+const SSTInspecoes = lazy(() => import("./pages/SSTInspecoes"));
+const SSTForm = lazy(() => import("./pages/SSTForm"));
+const SSTIntegracaoHome = lazy(() => import("./pages/SSTIntegracaoHome"));
+const SSTFuncionariosDocs = lazy(() => import("./pages/SSTFuncionariosDocs"));
+const SSTObrasIntegracao = lazy(() => import("./pages/SSTObrasIntegracao"));
+const SSTObrasVisualizacao = lazy(() => import("./pages/SSTObrasVisualizacao"));
+const CarreteirosQRScan = lazy(() => import("./pages/CarreteirosQRScan"));
+const CarreteirosQRPrint = lazy(() => import("./pages/CarreteirosQRPrint"));
+const ManutencaoDocumentos = lazy(() => import("./pages/ManutencaoDocumentos"));
+const ManutencaoHome = lazy(() => import("./pages/ManutencaoHome"));
+const ManutencaoOS = lazy(() => import("./pages/ManutencaoOS"));
+const MeusLancamentos = lazy(() => import("./pages/MeusLancamentos"));
+const MinhasDemandas = lazy(() => import("./pages/MinhasDemandas"));
+const OperadoresHabilitados = lazy(() => import("./pages/OperadoresHabilitados"));
+const ProgramadorHome = lazy(() => import("./pages/ProgramadorHome"));
+const ProgramacaoNoturna = lazy(() => import("./pages/ProgramacaoNoturna"));
+const ProgramadorPendencias = lazy(() => import("./pages/ProgramadorPendencias"));
+const RelatorioProgramacoes = lazy(() => import("./pages/RelatorioProgramacoes"));
+const TransporteEquipamentos = lazy(() => import("./pages/TransporteEquipamentos"));
+const RdoForm = lazy(() => import("./pages/RdoForm"));
+const RegistrarPonto = lazy(() => import("./pages/RegistrarPonto"));
+const RelatorioAbastecimento = lazy(() => import("./pages/RelatorioAbastecimento"));
+const RelatorioEquipamento = lazy(() => import("./pages/RelatorioEquipamento"));
+const RelatorioManutencao = lazy(() => import("./pages/RelatorioManutencao"));
+const RelatorioRdo = lazy(() => import("./pages/RelatorioRdo"));
+const RelatorioTransportes = lazy(() => import("./pages/RelatorioTransportes"));
+const RelatoriosHome = lazy(() => import("./pages/RelatoriosHome"));
+const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
+const SuprimentosHome = lazy(() => import("./pages/SuprimentosHome"));
+const MedicoesHome = lazy(() => import("./pages/MedicoesHome"));
+const AdminRolesPage = lazy(() => import("./pages/AdminRolesPage"));
+const RelatorioCarreteiros = lazy(() => import("./pages/RelatorioCarreteiros"));
+const RelatorioFuncionario = lazy(() => import("./pages/RelatorioFuncionario"));
+const RelatorioMdoPeriodo = lazy(() => import("./pages/RelatorioMdoPeriodo"));
+const RelatorioPendenciasPessoal = lazy(() => import("./pages/RelatorioPendenciasPessoal"));
+const RelatorioFuncionariosPersonalizado = lazy(() => import("./pages/RelatorioFuncionariosPersonalizado"));
+const RelatorioEquipamentosPersonalizado = lazy(() => import("./pages/RelatorioEquipamentosPersonalizado"));
+const RelatorioEquipamentosRdo = lazy(() => import("./pages/RelatorioEquipamentosRdo"));
+const RelatorioNotasFiscais = lazy(() => import("./pages/RelatorioNotasFiscais"));
+const RelatorioNotasFiscaisConcreto = lazy(() => import("./pages/RelatorioNotasFiscaisConcreto"));
+const RelatorioProducaoInfra = lazy(() => import("./pages/RelatorioProducaoInfra"));
+const RelatorioProducaoPavimentacao = lazy(() => import("./pages/RelatorioProducaoPavimentacao"));
+const RelatorioChecklist = lazy(() => import("./pages/RelatorioChecklist"));
+const RelatorioControleLancamentos = lazy(() => import("./pages/RelatorioControleLancamentos"));
+const RelatorioDivergenciasRdoDiarios = lazy(() => import("./pages/RelatorioDivergenciasRdoDiarios"));
+const RelatorioControleRdo = lazy(() => import("./pages/RelatorioControleRdo"));
+const RelatorioRdoTecnicoDashboard = lazy(() => import("./pages/RelatorioRdoTecnicoDashboard"));
+const TrajetoVT = lazy(() => import("./pages/TrajetoVT"));
+const TruckerHome = lazy(() => import("./pages/TruckerHome"));
+const ValeTransporte = lazy(() => import("./pages/ValeTransporte"));
+const VisualizarLancamento = lazy(() => import("./pages/VisualizarLancamento"));
+const VisualizarRdo = lazy(() => import("./pages/VisualizarRdo"));
+const EngHome = lazy(() => import("./pages/EngHome"));
+const EncHome = lazy(() => import("./pages/EncHome"));
+const EncValidarRdo = lazy(() => import("./pages/EncValidarRdo"));
+const DesbloqueioLogin = lazy(() => import("./pages/DesbloqueioLogin"));
+const EncEquipamentos = lazy(() => import("./pages/EncEquipamentos"));
+const EngValidarRdo = lazy(() => import("./pages/EngValidarRdo"));
+const EngValidacoes = lazy(() => import("./pages/EngValidacoes"));
+const EncValidacoes = lazy(() => import("./pages/EncValidacoes"));
+const EngRdoTecnico = lazy(() => import("./pages/EngRdoTecnico"));
+const EngRdoTecnicoHistorico = lazy(() => import("./pages/EngRdoTecnicoHistorico"));
+const EngRdoTecnicoDetalhe = lazy(() => import("./pages/EngRdoTecnicoDetalhe"));
+const EngRdoTecnicoEditar = lazy(() => import("./pages/EngRdoTecnicoEditar"));
+const WFDashboards = lazy(() => import("./pages/WFDashboards"));
+const DashboardObras = lazy(() => import("./pages/DashboardObras"));
+const CentralOperacoes = lazy(() => import("./pages/CentralOperacoes"));
+const DashboardManutencao = lazy(() => import("./pages/DashboardManutencao"));
+const DashboardFrota = lazy(() => import("./pages/DashboardFrota"));
+const OrcamentosHome = lazy(() => import("./pages/OrcamentosHome"));
+const PlanejamentoHome = lazy(() => import("./pages/PlanejamentoHome"));
 
 const queryClient = new QueryClient();
 
@@ -387,6 +387,7 @@ function AppRoutes() {
   return (
     <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
       <DesktopRouteFrame>
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Carregando...</p></div>}>
       <Routes>
         <Route path="/trocar-senha" element={<TrocarSenha />} />
         <Route path="/desbloqueio" element={<DesbloqueioLogin />} />
@@ -420,8 +421,6 @@ function AppRoutes() {
         <Route path="/engenharia/rdo-tecnico/:id" element={<EngRdoTecnicoDetalhe />} />
         <Route path="/engenharia/rdo-tecnico" element={<EngRdoTecnico />} />
         <Route path="/equipamentos/exportar-protheus" element={<RequireModule moduleId="equipamentos"><ExportarProtheus /></RequireModule>} />
-        <Route path="/documentos" element={<RequireModule moduleId="documentos"><DocumentosHome /></RequireModule>} />
-        <Route path="/documentos/:id" element={<RequireModule moduleId="documentos"><DocumentosIntegracao /></RequireModule>} />
         <Route path="/manutencao" element={<RequireModule moduleId="manutencao"><ManutencaoHome /></RequireModule>} />
         <Route path="/manutencao/os/:id" element={<RequireModule moduleId="manutencao"><ManutencaoOS /></RequireModule>} />
         <Route path="/manutencao/documentos" element={<RequireModule moduleId="manutencao"><ManutencaoDocumentos /></RequireModule>} />
@@ -588,6 +587,7 @@ function AppRoutes() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
       </DesktopRouteFrame>
     </ErrorBoundary>
   );
