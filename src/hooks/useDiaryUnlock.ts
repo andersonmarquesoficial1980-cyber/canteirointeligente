@@ -70,6 +70,7 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
         const [
           { data: profile, error: profileError },
           { data: hasAdminRole, error: adminRoleError },
+          engenhariaPerm,
         ] = await Promise.all([
           supabase
             .from("profiles")
@@ -80,6 +81,14 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
             _user_id: session.user.id,
             _role: "admin",
           }),
+          // Engenharia só é isenta no RDO; o banco aplica a mesma regra (fn_assert_diary_deadline_48h)
+          tipo === "rdo"
+            ? (supabase as any)
+                .from("user_permissions")
+                .select("modulo_engenharia")
+                .eq("user_id", session.user.id)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
         ]);
 
         if (profileError) throw profileError;
@@ -88,8 +97,9 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
         const isAdmin =
           Boolean(hasAdminRole) ||
           isAdminProfile((profile as any)?.perfil, (profile as any)?.role);
+        const isEngenhariaRdo = tipo === "rdo" && engenhariaPerm?.data?.modulo_engenharia === true;
 
-        if (isAdmin) {
+        if (isAdmin || isEngenhariaRdo) {
           if (!cancelled) setIsBlocked(false);
           return;
         }
