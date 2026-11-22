@@ -97,7 +97,9 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
         const isAdmin =
           Boolean(hasAdminRole) ||
           isAdminProfile((profile as any)?.perfil, (profile as any)?.role);
-        const isEngenhariaRdo = tipo === "rdo" && engenhariaPerm?.data?.modulo_engenharia === true;
+        const isEncarregado = ((profile as any)?.perfil || "").trim().toLowerCase() === "encarregado";
+        const isEngenhariaRdo =
+          tipo === "rdo" && engenhariaPerm?.data?.modulo_engenharia === true && !isEncarregado;
 
         if (isAdmin || isEngenhariaRdo) {
           if (!cancelled) setIsBlocked(false);
