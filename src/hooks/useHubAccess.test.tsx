@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearSessionCache } from '@/lib/sessionCache';
 import { cleanup, renderHook, waitFor } from '@testing-library/react';
 import { useHubAccess } from './useHubAccess';
 const state=vi.hoisted(()=>({admin:false,superAdmin:false,contracted:true,panel:true,permissions:{} as Record<string,boolean>}));
@@ -9,6 +10,7 @@ vi.mock('@/integrations/supabase/client',()=>({supabase:{auth:{getUser:async()=>
 afterEach(()=>{cleanup();state.admin=false;state.superAdmin=false;state.contracted=true;state.panel=true;state.permissions={};});
 async function modules(){const {result}=renderHook(()=>useHubAccess());await waitFor(()=>expect(result.current.loading).toBe(false));return result.current.modules.map(m=>m.id);}
 describe('Navegação compartilhada — mesmas concessões do Home',()=>{
+  beforeEach(() => clearSessionCache());
  it('operador vê apenas seu módulo autorizado',async()=>{state.permissions={modulo_obras:true};expect(await modules()).toEqual(['obras']);});
  it('admin por role não libera automaticamente todos os módulos',async()=>{state.admin=true;state.permissions={modulo_relatorios:true};expect(await modules()).toEqual(['relatorios','admin']);});
  it('bloqueio explícito do painel prevalece no menu',async()=>{state.admin=true;state.panel=false;state.permissions={modulo_relatorios:true};expect(await modules()).toEqual(['relatorios']);});

@@ -1,65 +1,60 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { cachedFetch, getUserId, peekForUser } from "@/lib/sessionCache";
 
 /**
  * Retorna a lista de módulos contratados pela empresa do usuário logado.
  * Super-admin (role = 'superadmin') tem acesso a tudo.
  */
+type ModulesResult = { isSuperAdmin: boolean; modules: string[] | null; logo: string | null };
+
+async function loadCompanyModules(userId: string): Promise<ModulesResult> {
+  // Busca perfil do usuário
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, company_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  // Super-admin (dono do Workflux) vê tudo
+  if ((profile as any)?.role === "superadmin") return { isSuperAdmin: true, modules: null, logo: null };
+
+  const companyId = (profile as any)?.company_id;
+  if (!companyId) return { isSuperAdmin: false, modules: [], logo: null };
+
+  // Busca módulos contratados e dados da empresa
+  const [{ data: mods }, { data: comp }] = await Promise.all([
+    supabase.from("company_modules").select("modulo").eq("company_id", companyId).eq("ativo", true),
+    supabase.from("companies").select("logo_url").eq("id", companyId).maybeSingle(),
+  ]);
+  return {
+    isSuperAdmin: false,
+    modules: (mods ?? []).map((m: any) => m.modulo),
+    logo: comp?.logo_url ?? null,
+  };
+}
+
 export function useCompanyModules() {
-  const [modules, setModules] = useState<string[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const initial = peekForUser<ModulesResult>("companyModules");
+  const [modules, setModules] = useState<string[] | null>(initial?.modules ?? null);
+  const [loading, setLoading] = useState(!initial);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(initial?.isSuperAdmin ?? false);
+  const [companyLogo, setCompanyLogo] = useState<string | null>(initial?.logo ?? null);
 
   useEffect(() => {
+    let alive = true;
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-
-      // Busca perfil do usuário
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, company_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      // Super-admin (dono do Workflux) vê tudo
-      if ((profile as any)?.role === "superadmin") {
-        setIsSuperAdmin(true);
-        setModules(null); // null = sem restrição
-        setLoading(false);
-        return;
-      }
-
-      const companyId = (profile as any)?.company_id;
-      if (!companyId) {
-        setModules([]);
-        setLoading(false);
-        return;
-      }
-
-      // Busca módulos contratados e dados da empresa
-      const [{ data: mods }, { data: comp }] = await Promise.all([
-        supabase
-          .from("company_modules")
-          .select("modulo")
-          .eq("company_id", companyId)
-          .eq("ativo", true),
-        supabase
-          .from("companies")
-          .select("logo_url")
-          .eq("id", companyId)
-          .maybeSingle()
-      ]);
-
-      if (comp?.logo_url) {
-        setCompanyLogo(comp.logo_url);
-      }
-
-      setModules((mods ?? []).map((m: any) => m.modulo));
+      const userId = await getUserId();
+      if (!userId) { if (alive) setLoading(false); return; }
+      const r = await cachedFetch(`companyModules:${userId}`, () => loadCompanyModules(userId));
+      if (!alive) return;
+      setIsSuperAdmin(r.isSuperAdmin);
+      setModules(r.modules);
+      setCompanyLogo(r.logo);
       setLoading(false);
     }
-    load();
+    load().catch(() => alive && setLoading(false));
+    return () => { alive = false; };
   }, []);
 
   /**

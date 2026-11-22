@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { cachedFetch, getUserId, peekForUser } from "@/lib/sessionCache";
 
 export interface Permissions {
   is_admin: boolean;
@@ -60,51 +61,53 @@ const ADMIN_PERMISSIONS: Permissions = Object.fromEntries(
   Object.keys(DEFAULT_PERMISSIONS).map(k => [k, true])
 ) as unknown as Permissions;
 
+type PermissionsResult = { permissions: Permissions; semPerfil: boolean } | null;
+
+async function loadPermissions(userId: string): Promise<PermissionsResult> {
+  // Verificar se é admin pelo hook existente
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, company_id")
+    .eq("user_id", userId)
+    .single();
+
+  // Usuário existe no Auth mas não tem profile ainda — situação de novo cadastro pendente
+  if (!profile) return { permissions: DEFAULT_PERMISSIONS, semPerfil: true };
+
+  // Buscar permissões específicas do user_permissions (fonte de verdade)
+  const { data: perms, error: permsError } = await supabase
+    .from("user_permissions")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  // Somente o owner superadmin pode ignorar concessões individuais.
+  // role='admin' legado não pode restaurar acesso que foi retirado no painel.
+  if (profile?.role === "superadmin") return { permissions: ADMIN_PERMISSIONS, semPerfil: false };
+  if (perms) return { permissions: perms as unknown as Permissions, semPerfil: false };
+  if (permsError) console.warn("[usePermissions] erro:", permsError.message);
+  return { permissions: DEFAULT_PERMISSIONS, semPerfil: false };
+}
+
 export function usePermissions() {
-  const [permissions, setPermissions] = useState<Permissions | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [semPerfil, setSemPerfil] = useState(false);
+  const initial = peekForUser<PermissionsResult>("permissions");
+  const [permissions, setPermissions] = useState<Permissions | null>(initial?.permissions ?? null);
+  const [loading, setLoading] = useState(!initial);
+  const [semPerfil, setSemPerfil] = useState(initial?.semPerfil ?? false);
 
   useEffect(() => {
+    let alive = true;
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-
-      // Verificar se é admin pelo hook existente
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, company_id")
-        .eq("user_id", user.id)
-        .single();
-
-      // Usuário existe no Auth mas não tem profile ainda — situação de novo cadastro pendente
-      if (!profile) {
-        setSemPerfil(true);
-        setPermissions(DEFAULT_PERMISSIONS);
-        setLoading(false);
-        return;
-      }
-
-      // Buscar permissões específicas do user_permissions (fonte de verdade)
-      const { data: perms, error: permsError } = await supabase
-        .from("user_permissions")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      // Somente o owner superadmin pode ignorar concessões individuais.
-      // role='admin' legado não pode restaurar acesso que foi retirado no painel.
-      if (profile?.role === "superadmin") {
-        setPermissions(ADMIN_PERMISSIONS);
-      } else if (perms) {
-        setPermissions(perms as unknown as Permissions);
-      } else {
-        setPermissions(DEFAULT_PERMISSIONS);
-        if (permsError) console.warn("[usePermissions] erro:", permsError.message);
-      }
+      const userId = await getUserId();
+      if (!userId) { if (alive) setLoading(false); return; }
+      const result = await cachedFetch(`permissions:${userId}`, () => loadPermissions(userId));
+      if (!alive || !result) return;
+      setSemPerfil(result.semPerfil);
+      setPermissions(result.permissions);
       setLoading(false);
     }
-    load();
+    load().catch(() => alive && setLoading(false));
+    return () => { alive = false; };
   }, []);
 
   return { permissions, loading, semPerfil };

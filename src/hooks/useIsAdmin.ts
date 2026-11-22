@@ -1,35 +1,34 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { cachedFetch, getUserId, peekForUser } from "@/lib/sessionCache";
 
 export function useIsAdmin() {
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const initial = peekForUser<boolean>("isAdmin");
+  const [isAdmin, setIsAdmin] = useState(initial ?? false);
+  const [loading, setLoading] = useState(initial === undefined);
 
   useEffect(() => {
+    let alive = true;
     const check = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setIsAdmin(false);
-          setLoading(false);
+        const userId = await getUserId();
+        if (!userId) {
+          if (alive) { setIsAdmin(false); setLoading(false); }
           return;
         }
-
-        const { data } = await supabase.rpc("has_role", {
-          _user_id: user.id,
-          _role: "admin",
+        const admin = await cachedFetch(`isAdmin:${userId}`, async () => {
+          const { data } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+          return Boolean(data);
         });
-
-        setIsAdmin(Boolean(data));
+        if (alive) setIsAdmin(admin);
       } catch {
-        setIsAdmin(false);
+        if (alive) setIsAdmin(false);
       }
-      setLoading(false);
+      if (alive) setLoading(false);
     };
-
     check();
+    return () => { alive = false; };
   }, []);
 
   return { isAdmin, loading };
 }
-

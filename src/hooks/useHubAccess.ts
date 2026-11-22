@@ -4,6 +4,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { usePermissions, type Permissions } from "@/hooks/usePermissions";
 import { useCompanyModules } from "@/hooks/useCompanyModules";
 import { supabase } from "@/integrations/supabase/client";
+import { cachedFetch, getUserId, peekForUser } from "@/lib/sessionCache";
 import { HUB_MODULES } from "@/config/navigation";
 
 // Mesmo recorte do Home: apenas centralizado para a navegação desktop.
@@ -12,43 +13,36 @@ export function useHubAccess() {
   const { isAdmin } = useIsAdmin();
   const { permissions, loading: loadingPerms, semPerfil } = usePermissions();
   const { hasModule, loading: loadingModules, isSuperAdmin, companyLogo } = useCompanyModules();
-  const [panelAccessAllowed, setPanelAccessAllowed] = useState(true);
-  const [loadingPanelAccess, setLoadingPanelAccess] = useState(true);
+  const initialPanel = peekForUser<boolean>("panelAccess");
+  const [panelAccessAllowed, setPanelAccessAllowed] = useState(initialPanel ?? true);
+  const [loadingPanelAccess, setLoadingPanelAccess] = useState(initialPanel === undefined);
   useEffect(() => {
     let mounted = true;
 
     const loadPanelAccess = async () => {
       try {
-        const { data: auth } = await supabase.auth.getUser();
-        const user = auth?.user;
-        if (!user) {
+        const userId = await getUserId();
+        if (!userId) {
           if (mounted) setLoadingPanelAccess(false);
           return;
         }
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("company_id")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (!profile?.company_id) {
-          if (mounted) {
-            setPanelAccessAllowed(true);
-            setLoadingPanelAccess(false);
-          }
-          return;
-        }
-
-        const { data } = await (supabase as SupabaseClient)
-          .from("user_admin_panel_access")
-          .select("can_access_panel")
-          .eq("company_id", profile.company_id)
-          .eq("user_id", user.id)
-          .maybeSingle();
-
+        const allowed = await cachedFetch(`panelAccess:${userId}`, async () => {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("company_id")
+            .eq("user_id", userId)
+            .maybeSingle();
+          if (!profile?.company_id) return true;
+          const { data } = await (supabase as SupabaseClient)
+            .from("user_admin_panel_access")
+            .select("can_access_panel")
+            .eq("company_id", profile.company_id)
+            .eq("user_id", userId)
+            .maybeSingle();
+          return data?.can_access_panel !== false;
+        });
         if (mounted) {
-          setPanelAccessAllowed(data?.can_access_panel !== false);
+          setPanelAccessAllowed(allowed);
           setLoadingPanelAccess(false);
         }
       } catch {

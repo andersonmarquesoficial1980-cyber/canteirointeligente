@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { clearSessionCache } from "@/lib/sessionCache";
 import { renderHook, waitFor } from "@testing-library/react";
 import { usePermissions } from "./usePermissions";
 
@@ -16,6 +17,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 }));
 
 describe("permissões individuais", () => {
+  beforeEach(() => clearSessionCache());
   it("perfil admin legado não ignora as permissões individuais", async () => {
     state.role = "admin";
     const { result } = renderHook(() => usePermissions());
