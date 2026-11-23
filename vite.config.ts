@@ -57,6 +57,9 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ].filter(Boolean),
+  define: {
+    "import.meta.env.VITE_APP_RELEASE": JSON.stringify((process.env.VERCEL_GIT_COMMIT_SHA || "").slice(0, 7)),
+  },
   build: {
     rollupOptions: {
       output: {

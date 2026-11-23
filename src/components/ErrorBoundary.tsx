@@ -1,6 +1,7 @@
 import React from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { reportError } from "@/lib/monitoring";
 
 interface Props {
   children: React.ReactNode;
@@ -29,6 +30,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
       error?.message?.includes("Failed to fetch dynamically imported module") ||
       error?.message?.includes("Importing a module script failed") ||
       error?.name === "ChunkLoadError";
+    if (!isChunkError) {
+      reportError(error, { origem: "ErrorBoundary", mensagem_tela: this.props.fallbackMessage || "" });
+    }
     if (isChunkError) {
       const reloadedKey = "_sw_chunk_reload";
       if (!sessionStorage.getItem(reloadedKey)) {

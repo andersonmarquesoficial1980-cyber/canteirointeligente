@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
+import { setMonitoringUser } from "@/lib/monitoring";
 
 /** Force-clear everything and redirect to clean login */
 function forceLogout() {
@@ -20,6 +21,7 @@ export function useAuth() {
     }, 5000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setMonitoringUser(sess?.user ? { id: sess.user.id } : null);
       if (_event === "SIGNED_OUT") {
         setSession(null);
         setLoading(false);
