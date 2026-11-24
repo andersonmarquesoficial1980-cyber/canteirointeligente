@@ -5,6 +5,7 @@ import {
   computeRdoAlerts,
   daysLeftToLaunch,
   isNonWorkingDay,
+  retroactiveInfo,
 } from "./diaryDeadlineAlerts";
 
 const TODAY = "2026-11-18"; // quarta-feira
@@ -101,5 +102,21 @@ describe("helpers", () => {
     const [a] = computeEquipmentAlerts({ today: TODAY, diaries: [d("2026-10-30"), d("2026-11-17")] });
     expect(a.blocked.every((b) => b.date >= "2026-11-07")).toBe(true);
     expect(a.blocked.map((b) => b.date)).not.toContain("2026-11-05");
+  });
+});
+
+describe("retroactiveInfo", () => {
+  it("dentro das 72h não é retroativo", () => {
+    expect(retroactiveInfo("2026-11-22", "2026-11-24T15:00:00Z", null).isRetro).toBe(false);
+  });
+  it("fora das 72h é retroativo e informa o atraso", () => {
+    const r = retroactiveInfo("2026-11-18", "2026-11-24T15:00:00Z", null);
+    expect(r).toEqual({ isRetro: true, lateDays: 6, reason: null });
+  });
+  it("marcador [RETROATIVO] traz o motivo", () => {
+    expect(retroactiveInfo("2026-11-23", "2026-11-24T15:00:00Z", "ok\n[RETROATIVO: Esqueci o horímetro]").reason).toBe("Esqueci o horímetro");
+  });
+  it("usa a data de São Paulo (02:00Z do dia 25 ainda é dia 24)", () => {
+    expect(retroactiveInfo("2026-11-22", "2026-11-25T02:00:00Z", null).lateDays).toBe(2);
   });
 });

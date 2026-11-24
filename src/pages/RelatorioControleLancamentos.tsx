@@ -12,7 +12,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { toLocalISODate } from "@/lib/date-local";
 import { findMeterGaps, eligibleFleetCoverage, type MeterDiary, type MeterGap } from "@/lib/equipmentDiaryAudit";
+import { retroactiveInfo } from "@/lib/diaryDeadlineAlerts";
 import { toast } from "sonner";
+
+function countRetro(rows: { status: string; is_auto: boolean; date: string; created_at: string; observations: string | null }[]): number {
+  return rows.filter(r => r.status === "enviado" && !r.is_auto && retroactiveInfo(r.date, r.created_at, r.observations).isRetro).length;
+}
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +62,7 @@ interface ListItem {
   breaks: MeterGap[];           // divergências de medidor (só frota)
   dayState: Map<string, EmptyState>;
   dispensado: boolean;
+  retroCount: number;           // diários enviados fora das 72h (retroativos)
 }
 
 interface ConfigObrigatorio {
@@ -175,8 +181,8 @@ function Detalhe({ item, diasLabel, onCell, onCopy, onNavigate, compact }: {
   const isFrota = item.kind === "frota";
   const colW = compact ? 64 : 76;
   const cols = isFrota
-    ? ["Data","Operador","OGS","Local","Turno","Status","Hor.Ini","Hor.Fin","Odo.Ini","Odo.Fin","Comb.","Litros","Obs.","Envio","Lançado em"]
-    : ["Data","Frota","Tipo","OGS","Local","Turno","Status","Hor.Ini","Hor.Fin","Odo.Ini","Odo.Fin","Comb.","Litros","Obs.","Envio","Lançado em"];
+    ? ["Data","Operador","OGS","Local","Turno","Status","Hor.Ini","Hor.Fin","Odo.Ini","Odo.Fin","Comb.","Litros","Obs.","Retroativo","Envio","Lançado em"]
+    : ["Data","Frota","Tipo","OGS","Local","Turno","Status","Hor.Ini","Hor.Fin","Odo.Ini","Odo.Fin","Comb.","Litros","Obs.","Retroativo","Envio","Lançado em"];
   const sorted = [...item.rows].sort((a, b) => a.date.localeCompare(b.date) || String(a.created_at).localeCompare(String(b.created_at)));
 
   return (
@@ -248,7 +254,7 @@ function Detalhe({ item, diasLabel, onCell, onCopy, onNavigate, compact }: {
             </thead>
             <tbody>
               {sorted.map((r, i) => (
-                <tr key={r.id + i} className={`border-b border-gray-100 ${r.status === "rascunho" ? "bg-orange-50" : i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}>
+                <tr key={r.id + i} className={`border-b border-gray-100 ${r.status === "rascunho" ? "bg-orange-50" : r.status === "enviado" && retroactiveInfo(r.date, r.created_at, r.observations).isRetro ? "bg-amber-50" : i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}>
                   <td className="px-2 py-1.5 whitespace-nowrap font-medium">{fmtDate(r.date)}</td>
                   {isFrota ? (
                     <td className="px-2 py-1.5 whitespace-nowrap font-semibold text-slate-700">{r.usuario_nome}</td>
@@ -273,6 +279,16 @@ function Detalhe({ item, diasLabel, onCell, onCopy, onNavigate, compact }: {
                   <td className="px-2 py-1.5 whitespace-nowrap">{r.fuel_type || "—"}</td>
                   <td className="px-2 py-1.5 text-center">{r.fuel_liters ?? "—"}</td>
                   <td className={`px-2 py-1.5 truncate ${compact ? "max-w-[320px]" : "max-w-[160px]"}`} title={r.observations || ""}>{r.observations || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {(() => {
+                      const ri = r.status === "enviado" ? retroactiveInfo(r.date, r.created_at, r.observations) : null;
+                      return ri?.isRetro ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800" title={ri.reason || "Lançado fora das 72h (sem justificativa registrada)"}>
+                          ⏱ +{ri.lateDays}d{ri.reason ? ` · ${ri.reason.slice(0, 40)}` : ""}
+                        </span>
+                      ) : "—";
+                    })()}
+                  </td>
                   <td className="px-2 py-1.5">
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${r.status === "enviado" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>
                       {r.status === "enviado" ? "✅" : "📝"}
@@ -312,6 +328,7 @@ export default function RelatorioControleLancamentos() {
   const [tipoFiltro, setTipoFiltro]           = useState("");
   const [apenasSemlancamento, setApenasSemlancamento] = useState(false);
   const [apenasPendentes, setApenasPendentes] = useState(false);
+  const [apenasRetro, setApenasRetro] = useState(false);
   const [ordem, setOrdem]       = useState<"pendencias" | "az">("pendencias");
   const [loading, setLoading]   = useState(false);
   const [fetchError, setFetchError] = useState("");
@@ -543,6 +560,7 @@ export default function RelatorioControleLancamentos() {
         titulo: label,
         subtitulo: `${frota !== label ? `Frota: ${frota} | ` : ""}${tipo || "—"}${ogs ? ` | OGS: ${ogs}` : ""}${ops ? ` | ${ops}` : ""}${devolvido ? " | DEVOLVIDO" : ""}`,
         tipo, rows, semLancamento, missing, breaks, dayState, dispensado,
+        retroCount: countRetro(rows),
         badgeText: pct === null ? "Aguardando" : `${done}/${billable.length} dias (${pct}%)`,
         badgeCls: pct === null ? "bg-gray-100 text-gray-600"
           : pct === 100 ? "bg-green-100 text-green-700"
@@ -566,11 +584,12 @@ export default function RelatorioControleLancamentos() {
       .filter(i => !tipoFiltro || tipoKey(i.tipo) === tipoFiltro)
       .filter(i => !b || i.titulo.toLowerCase().includes(b) || i.key.toLowerCase().includes(b) || i.tipo.toLowerCase().includes(b))
       .filter(i => !apenasSemlancamento || i.semLancamento)
-      .filter(i => !apenasPendentes || i.missing.length > 0 || i.breaks.length > 0);
+      .filter(i => !apenasPendentes || i.missing.length > 0 || i.breaks.length > 0)
+      .filter(i => !apenasRetro || i.retroCount > 0);
     return lista.sort((a, b) => ordem === "pendencias"
       ? (b.missing.length + b.breaks.length) - (a.missing.length + a.breaks.length) || a.key.localeCompare(b.key, "pt-BR", { numeric: true })
       : a.key.localeCompare(b.key, "pt-BR", { numeric: true }));
-  }, [frotaItensTodos, cfg.ocultar, tipoFiltro, busca, apenasSemlancamento, apenasPendentes, ordem]);
+  }, [frotaItensTodos, cfg.ocultar, tipoFiltro, busca, apenasSemlancamento, apenasPendentes, apenasRetro, ordem]);
 
   // Usuários
   const usuarioCards: ListItem[] = useMemo(() => {
@@ -589,7 +608,7 @@ export default function RelatorioControleLancamentos() {
       const pct = sem ? 0 : Math.round((dias / (allDays.length || 1)) * 100);
       return {
         key, kind: "usuario", titulo: nome, subtitulo: email, tipo: "", rows, semLancamento: sem,
-        missing: [], breaks: [], dayState, dispensado: false,
+        missing: [], breaks: [], dayState, dispensado: false, retroCount: countRetro(rows),
         badgeText: sem ? "0 lançamentos" : `${dias}/${allDays.length} dias (${pct}%)`,
         badgeCls: sem || pct === 0 ? "bg-red-100 text-red-700" : pct === 100 ? "bg-green-100 text-green-700" : pct >= 70 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700",
       };
@@ -597,15 +616,16 @@ export default function RelatorioControleLancamentos() {
     const match = (nome: string, email: string) => !b || nome.toLowerCase().includes(b) || email.toLowerCase().includes(b);
     return apenasSemlancamento
       ? todosUsuarios.filter(u => !usuariosComLancamento.has(u.id)).filter(u => match(u.nome, u.email)).map(u => mk(u.id, u.nome, u.email, [], true))
-      : Object.entries(porUsuario).filter(([, v]) => match(v.nome, v.email))
+      : Object.entries(porUsuario).filter(([, v]) => match(v.nome, v.email)).filter(([, v]) => !apenasRetro || countRetro(v.rows) > 0)
           .sort((a, b2) => a[1].nome.localeCompare(b2[1].nome))
           .map(([k, v]) => mk(k, v.nome, v.email, v.rows, false));
-  }, [diarios, todosUsuarios, allDays, hojeISO, busca, apenasSemlancamento]);
+  }, [diarios, todosUsuarios, allDays, hojeISO, busca, apenasSemlancamento, apenasRetro]);
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const totalEnviados  = diarios.filter(d => d.status === "enviado").length;
   const totalRascunhos = diarios.filter(d => d.status === "rascunho").length;
   const frotasMonitoradas = frotaItensTodos.filter(i => !i.dispensado);
+  const totalRetro = countRetro(diarios);
   const qtdUsuarios = new Set(diarios.map(r => r.usuario_id || r.usuario_nome)).size;
   const qtdDispensadas = frotaItensTodos.filter(i => i.dispensado).length;
 
@@ -755,6 +775,12 @@ export default function RelatorioControleLancamentos() {
                 </>
               )}
 
+              <button onClick={() => setApenasRetro(v => !v)}
+                className={`flex items-center gap-2 h-9 px-4 rounded-md text-sm font-semibold border transition-all ${
+                  apenasRetro ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-600 border-gray-200 hover:bg-gray-50"}`}>
+                ⏱ Só retroativos
+              </button>
+
               <button onClick={() => setApenasSemlancamento(v => !v)}
                 className={`flex items-center gap-2 h-9 px-4 rounded-md text-sm font-semibold border transition-all ${
                   apenasSemlancamento ? "bg-red-600 text-white border-red-600" : "bg-white text-slate-600 border-gray-200 hover:bg-gray-50"}`}>
@@ -830,17 +856,18 @@ export default function RelatorioControleLancamentos() {
           </details>
 
           {/* KPIs */}
-          <div className={`grid grid-cols-2 ${painel ? "md:grid-cols-5" : "md:grid-cols-5"} gap-3 mb-4`}>
+          <div className={`grid grid-cols-2 ${painel ? "md:grid-cols-6" : "md:grid-cols-6"} gap-3 mb-4`}>
             {[
               { label: "Usuários",     val: qtdUsuarios, color: "bg-blue-600",   icon: <Users size={18}/> },
               { label: qtdDispensadas ? `Frotas monitoradas (${qtdDispensadas} dispensadas)` : "Frotas monitoradas", val: frotasMonitoradas.length, color: "bg-teal-600", icon: <Wrench size={18}/> },
               { label: "✅ Enviados",   val: totalEnviados,  color: "bg-green-600",  icon: <CheckCircle2 size={18}/> },
               { label: "📝 Rascunhos",  val: totalRascunhos, color: "bg-orange-500", icon: <AlertCircle size={18}/> },
               { label: "Frotas com pendência", val: frotaPendencias.length, color: "bg-red-600", icon: <FileX size={18}/>, click: true },
+              { label: "⏱ Retroativos (fora das 72h)", val: totalRetro, color: "bg-amber-600", icon: <AlertCircle size={18}/>, clickRetro: true },
             ].map(k => (
-              <div key={k.label} onClick={"click" in k ? () => { setAba("equipamento"); setApenasPendentes(v => !v); } : undefined}
+              <div key={k.label} onClick={"clickRetro" in k ? () => setApenasRetro(v => !v) : "click" in k ? () => { setAba("equipamento"); setApenasPendentes(v => !v); } : undefined}
                 title={"click" in k ? "Clique para filtrar só as frotas com pendência" : undefined}
-                className={`${k.color} text-white rounded-xl ${painel ? "p-3" : "p-4"} flex items-center gap-3 shadow-sm ${"click" in k ? `cursor-pointer ${apenasPendentes ? "ring-2 ring-offset-2 ring-red-400" : ""}` : ""}`}>
+                className={`${k.color} text-white rounded-xl ${painel ? "p-3" : "p-4"} flex items-center gap-3 shadow-sm ${"clickRetro" in k ? `cursor-pointer ${apenasRetro ? "ring-2 ring-offset-2 ring-amber-400" : ""}` : "click" in k ? `cursor-pointer ${apenasPendentes ? "ring-2 ring-offset-2 ring-red-400" : ""}` : ""}`}>
                 <div className="opacity-80">{k.icon}</div>
                 <div>
                   <div className="text-2xl font-bold">{k.val}</div>
@@ -854,7 +881,7 @@ export default function RelatorioControleLancamentos() {
           <div className="flex gap-2 mb-4 no-print items-center">
             {(["usuario","equipamento"] as const).map(id => (
               <button key={id}
-                onClick={() => { setAba(id); setBusca(""); setTipoFiltro(""); setApenasSemlancamento(false); setApenasPendentes(false); setSelKey(""); }}
+                onClick={() => { setAba(id); setBusca(""); setTipoFiltro(""); setApenasSemlancamento(false); setApenasPendentes(false); setApenasRetro(false); setSelKey(""); }}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                   aba === id ? "bg-slate-800 text-white shadow" : "bg-white text-slate-600 border border-gray-200 hover:bg-gray-50"
                 }`}>

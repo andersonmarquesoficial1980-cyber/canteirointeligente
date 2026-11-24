@@ -151,3 +151,25 @@ export function compactRanges(dates: string[]): string[] {
   }
   return out;
 }
+
+export interface RetroactiveInfo {
+  isRetro: boolean;
+  /** Dias entre o dia do diário e o lançamento (0 = no próprio dia). */
+  lateDays: number;
+  /** Motivo informado pelo operador ([RETROATIVO: ...]), se houver. */
+  reason: string | null;
+}
+
+/** Lançado fora das 72h (data do envio em São Paulo > dia + 2) ou marcado com [RETROATIVO: ...]. */
+export function retroactiveInfo(date: string, createdAt: string | null | undefined, observations?: string | null): RetroactiveInfo {
+  const reason = observations?.match(/\[RETROATIVO:\s*([^\]]*)\]/)?.[1]?.trim() || null;
+  let lateDays = 0;
+  if (date && createdAt) {
+    const t = new Date(createdAt);
+    if (!Number.isNaN(t.getTime())) {
+      const sp = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(t);
+      lateDays = Math.max(0, diffDays(date, sp));
+    }
+  }
+  return { isRetro: lateDays >= DEADLINE_WINDOW_DAYS || reason !== null, lateDays, reason };
+}
