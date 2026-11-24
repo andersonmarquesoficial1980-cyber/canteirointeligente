@@ -311,10 +311,13 @@ export default function EquipmentDiaryForm() {
   });
   const {
     isBlocked: isDateBlocked,
+    isRetroactive,
     isLoading: isUnlockLoading,
     prazoLabel,
   } = useDiaryUnlock(date, "equipamento");
   const shouldBlockByDeadline = !isEditMode && !isUnlockLoading && isDateBlocked;
+  const isRetroactiveEntry = !isEditMode && !isUnlockLoading && isRetroactive;
+  const [retroJustification, setRetroJustification] = useState("");
   const [operator, setOperator] = useState("");
   const [operatorSolo, setOperatorSolo] = useState("");
   const [turno, setTurno] = useState<"diurno" | "noturno">("diurno");
@@ -1668,6 +1671,12 @@ export default function EquipmentDiaryForm() {
       }
     }
 
+    // Lançamento retroativo (fora das 72h): justificativa obrigatória, nunca bloqueia o lançamento
+    if (isRetroactiveEntry && !isDraft && retroJustification.trim().length < 10) {
+      toast({ title: "⚠️ Justificativa do retroativo", description: "Informe o motivo do lançamento fora do prazo (mín. 10 caracteres).", variant: "destructive" });
+      return cancelSave();
+    }
+
     // 6. Status Manutenção exige apenas observação (medidores opcionais)
     if (isStatusManutencao && !isPatioMode && !isDraft) {
       if (!observations.trim()) {
@@ -1843,6 +1852,9 @@ export default function EquipmentDiaryForm() {
       // Preservar checklist_submitted_at se já foi enviado
       ...(checklistSubmittedAt ? { checklist_submitted_at: checklistSubmittedAt } : {}),
     };
+    if (!isDraft && isRetroactiveEntry && retroJustification.trim()) {
+      diaryPayload.observations = `${diaryPayload.observations || ""}\n[RETROATIVO: ${retroJustification.trim()}]`.trim();
+    }
     if (!isDraft && saveMeterIssue && meterReason.trim()) {
       diaryPayload.observations = `${diaryPayload.observations || ""}\n[Conferência do medidor: ${meterReason.trim()}]`.trim();
     }
@@ -3203,6 +3215,22 @@ export default function EquipmentDiaryForm() {
         {isUnlockLoading && !isEditMode && (
           <div className="rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
             Verificando prazo de lançamento...
+          </div>
+        )}
+
+        {isRetroactiveEntry && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+            <p className="text-sm font-bold text-amber-900">Lançamento retroativo — {formatDateBRShort(date)}</p>
+            <p className="text-xs text-amber-900/80">
+              Este dia está fora do prazo de 72h. Você pode lançar normalmente; o diário fica marcado como retroativo para conferência do administrador.
+              Se o equipamento não trabalhou, lance como Folga/Disposição.
+            </p>
+            <Textarea
+              value={retroJustification}
+              onChange={(e) => setRetroJustification(e.target.value)}
+              placeholder="Motivo do lançamento fora do prazo (obrigatório)"
+              className="bg-white border-amber-300 min-h-[64px]"
+            />
           </div>
         )}
 

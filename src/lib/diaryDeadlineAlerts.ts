@@ -5,6 +5,7 @@
 
 export const DEADLINE_WINDOW_DAYS = 3; // hoje + 2 anteriores
 export const EQUIPMENT_LOOKBACK_DAYS = 60; // até onde olhar para trás
+export const RETRO_NOTICE_DAYS = 10; // aviso de dias sem diário só olha os últimos 10 dias
 export const FLEET_ACTIVE_WITHIN_DAYS = 14; // frota só entra se o último diário dele é recente
 export const RDO_ACTIVE_WITHIN_DAYS = 30; // só cobra RDO de quem lança RDO
 
@@ -74,6 +75,7 @@ export function computeEquipmentAlerts(params: {
   const { today, diaries, unlockedDates = new Set<string>() } = params;
   const lookbackStart = shiftIso(today, -EQUIPMENT_LOOKBACK_DAYS);
   const windowStart = shiftIso(today, -(DEADLINE_WINDOW_DAYS - 1));
+  const retroStart = shiftIso(today, -RETRO_NOTICE_DAYS);
 
   const byFleet = new Map<string, { dates: Set<string>; type: string | null }>();
   for (const d of diaries) {
@@ -99,7 +101,7 @@ export function computeEquipmentAlerts(params: {
       if (dates.has(day)) continue;
       if (day >= windowStart) {
         expiring.push({ date: day, daysLeft: daysLeftToLaunch(day, today) });
-      } else {
+      } else if (day >= retroStart) {
         blocked.push({ date: day, unlocked: unlockedDates.has(day) });
       }
     }

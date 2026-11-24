@@ -45,7 +45,7 @@ function AlertsBody({ alerts, compact = false }: { alerts: DiaryDeadlineAlerts; 
           </p>
           <p className="text-xs text-amber-900/80">
             O diário só pode ser lançado até 72h depois (hoje + 2 dias anteriores). Se o dia não teve serviço, lance
-            como Folga/Disposição. Depois do prazo, só com liberação do administrador.
+            como Folga/Disposição. Depois do prazo, o lançamento entra como retroativo (com justificativa).
           </p>
           {expiringFleets.map((f) => (
             <div key={f.fleet} className="text-xs text-amber-950 space-y-1">
@@ -81,22 +81,24 @@ function AlertsBody({ alerts, compact = false }: { alerts: DiaryDeadlineAlerts; 
       )}
 
       {blockedFleets.length > 0 && (
-        <section className="rounded-xl border border-red-300 bg-red-50 p-3 space-y-2">
-          <p className="flex items-center gap-2 text-sm font-bold text-red-900">
-            <AlertTriangle className="w-4 h-4 shrink-0" /> Dias sem diário desde que assumiu o equipamento
+        <section className="rounded-xl border border-orange-300 bg-orange-50 p-3 space-y-2">
+          <p className="flex items-center gap-2 text-sm font-bold text-orange-900">
+            <AlertTriangle className="w-4 h-4 shrink-0" /> Dias sem diário (últimos 10 dias)
           </p>
-          <p className="text-xs text-red-900/80">
-            Estes dias já passaram do prazo de 72h e estão bloqueados. Peça liberação ao administrador para lançar.
+          <p className="text-xs text-orange-900/80">
+            Estes dias passaram do prazo de 72h. Você ainda pode lançar como retroativo, informando o motivo. Se o equipamento
+            não trabalhou, lance como Folga/Disposição.
           </p>
           {blockedFleets.map((f) => (
-            <div key={f.fleet} className="text-xs text-red-950">
-              <p className="font-semibold">
-                {f.fleet} <span className="font-normal">(lançando desde {formatDayBR(f.assumedSince)})</span>
-              </p>
+            <div key={f.fleet} className="text-xs text-orange-950">
+              <p className="font-semibold">{f.fleet}</p>
               <p>
                 {f.blocked.length} {f.blocked.length === 1 ? "dia" : "dias"} sem diário:{" "}
                 {compactRanges(f.blocked.map((b) => b.date)).join(", ")}
               </p>
+              <Button size="sm" variant="outline" className="h-7 text-xs mt-1" onClick={() => navigate(launchEquipmentUrl(f, f.blocked[0].date))}>
+                Lançar retroativo
+              </Button>
             </div>
           ))}
         </section>

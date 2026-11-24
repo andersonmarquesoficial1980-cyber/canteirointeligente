@@ -95,4 +95,11 @@ describe("helpers", () => {
       "07/11/26",
     ]);
   });
+
+  const d = (date: string) => ({ fleet: "BC75", date });
+  it("aviso de dias sem diário só olha os últimos 10 dias (não 'desde que assumiu')", () => {
+    const [a] = computeEquipmentAlerts({ today: TODAY, diaries: [d("2026-10-30"), d("2026-11-17")] });
+    expect(a.blocked.every((b) => b.date >= "2026-11-07")).toBe(true);
+    expect(a.blocked.map((b) => b.date)).not.toContain("2026-11-05");
+  });
 });

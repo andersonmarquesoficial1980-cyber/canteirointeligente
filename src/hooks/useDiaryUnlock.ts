@@ -6,6 +6,8 @@ type DiaryTipo = "equipamento" | "rdo";
 
 interface UseDiaryUnlockResult {
   isBlocked: boolean;
+  /** Diário de equipamento fora das 72h: não bloqueia, entra como retroativo (justificativa obrigatória). */
+  isRetroactive: boolean;
   isLoading: boolean;
   prazoLabel: string;
 }
@@ -39,6 +41,7 @@ function isAdminProfile(perfil?: string | null, role?: string | null): boolean {
 export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockResult {
   const { session } = useAuth();
   const [isBlocked, setIsBlocked] = useState(false);
+  const [isRetroactive, setIsRetroactive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const prazoLabel = useMemo(
@@ -50,6 +53,7 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
     // Guardrail para desativar bloqueio de prazo em cenários emergenciais
     if (DIARY_DEADLINE_DISABLED) {
       setIsBlocked(false);
+      setIsRetroactive(false);
       setIsLoading(false);
       return;
     }
@@ -60,6 +64,7 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
       if (!session?.user?.id || !date) {
         if (!cancelled) {
           setIsBlocked(false);
+          setIsRetroactive(false);
           setIsLoading(false);
         }
         return;
@@ -102,7 +107,10 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
           tipo === "rdo" && engenhariaPerm?.data?.modulo_engenharia === true && !isEncarregado;
 
         if (isAdmin || isEngenhariaRdo) {
-          if (!cancelled) setIsBlocked(false);
+          if (!cancelled) {
+            setIsBlocked(false);
+            setIsRetroactive(false);
+          }
           return;
         }
 
@@ -111,7 +119,19 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
         const withinDeadline = date >= earliestAllowedSp && date <= todaySp;
 
         if (withinDeadline) {
-          if (!cancelled) setIsBlocked(false);
+          if (!cancelled) {
+            setIsBlocked(false);
+            setIsRetroactive(false);
+          }
+          return;
+        }
+
+        // Diário de equipamento nunca é bloqueado por prazo: entra como retroativo (auditado depois).
+        if (tipo === "equipamento") {
+          if (!cancelled) {
+            setIsBlocked(false);
+            setIsRetroactive(date < earliestAllowedSp);
+          }
           return;
         }
 
@@ -132,11 +152,13 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
 
         if (!cancelled) {
           setIsBlocked(!unlocks || unlocks.length === 0);
+          setIsRetroactive(false);
         }
       } catch (error) {
         console.error("[useDiaryUnlock] Falha ao validar prazo:", error);
         if (!cancelled) {
           setIsBlocked(false);
+          setIsRetroactive(false);
         }
       } finally {
         if (!cancelled) {
@@ -152,5 +174,5 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
     };
   }, [date, session?.user?.id, tipo]);
 
-  return { isBlocked, isLoading, prazoLabel };
+  return { isBlocked, isRetroactive, isLoading, prazoLabel };
 }
