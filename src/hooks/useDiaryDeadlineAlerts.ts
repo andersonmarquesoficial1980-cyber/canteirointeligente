@@ -4,7 +4,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { toSaoPauloISODate } from "@/lib/date-local";
 import {
   EQUIPMENT_LOOKBACK_DAYS,
-  computeEquipmentAlerts,
   computeRdoAlerts,
   shiftIso,
   type ExpiringDay,
@@ -60,16 +59,7 @@ export function useDiaryDeadlineAlerts(): DiaryDeadlineAlerts {
         const scope = <T extends { eq: (c: string, v: string) => T }>(q: T) =>
           companyId ? q.eq("company_id", companyId) : q;
 
-        const [diariesRes, rdoRes, unlockRes] = await Promise.all([
-          scope(
-            sb
-              .from("equipment_diaries")
-              .select("date, equipment_fleet, equipment_type")
-              .eq("created_by", userId)
-              .eq("status", "enviado")
-              .gte("date", since)
-              .limit(2000),
-          ),
+        const [rdoRes, unlockRes] = await Promise.all([
           scope(
             sb
               .from("rdo_diarios")
@@ -90,20 +80,11 @@ export function useDiaryDeadlineAlerts(): DiaryDeadlineAlerts {
         ]);
 
         const unlockRows: { data_liberada: string; tipo: string }[] = unlockRes.data ?? [];
-        const unlockedEquip = new Set(unlockRows.filter((u) => u.tipo === "equipamento").map((u) => u.data_liberada));
-        const unlockedRdo = new Set(unlockRows.filter((u) => u.tipo === "rdo").map((u) => u.data_liberada));
+                const unlockedRdo = new Set(unlockRows.filter((u) => u.tipo === "rdo").map((u) => u.data_liberada));
 
-        const equipment = diariesRes.error
-          ? []
-          : computeEquipmentAlerts({
-              today,
-              diaries: ((diariesRes.data ?? []) as any[]).map((r) => ({
-                fleet: r.equipment_fleet,
-                date: r.date,
-                equipmentType: r.equipment_type,
-              })),
-              unlockedDates: unlockedEquip,
-            });
+        // Avisos de Diário de Equipamento desativados: o sistema só enxerga os diários do próprio
+        // usuário e não sabe quando outro condutor operou a frota (falsos 'dias sem diário').
+        const equipment: FleetAlert[] = [];
 
         const rdoDatesArr: string[] = rdoRes.error ? [] : ((rdoRes.data ?? []) as any[]).map((r) => r.data).filter(Boolean);
         const rdo = computeRdoAlerts({

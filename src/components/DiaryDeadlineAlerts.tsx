@@ -44,8 +44,9 @@ function AlertsBody({ alerts, compact = false }: { alerts: DiaryDeadlineAlerts; 
             <Clock className="w-4 h-4 shrink-0" /> Prazo de lançamento vencendo
           </p>
           <p className="text-xs text-amber-900/80">
-            O diário só pode ser lançado até 72h depois (hoje + 2 dias anteriores). Se o dia não teve serviço, lance
-            como Folga/Disposição. Depois do prazo, o lançamento entra como retroativo (com justificativa).
+            {expiringFleets.length > 0
+              ? "O diário só pode ser lançado até 72h depois (hoje + 2 dias anteriores). Se o dia não teve serviço, lance como Folga/Disposição. Depois do prazo, o lançamento entra como retroativo (com justificativa)."
+              : "O RDO só pode ser lançado até 72h depois (hoje + 2 dias anteriores). Depois do prazo, só com liberação do administrador."}
           </p>
           {expiringFleets.map((f) => (
             <div key={f.fleet} className="text-xs text-amber-950 space-y-1">
