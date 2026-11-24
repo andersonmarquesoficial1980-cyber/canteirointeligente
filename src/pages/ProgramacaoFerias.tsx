@@ -10,6 +10,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
 import { assessVacationPlan, activeVacation, summarizeVacation } from "@/lib/vacationPlanning";
+import { isPendenciaFerias, periodoSugeridoFerias, type PendenciaFeriasRow } from "@/lib/feriasPendencia";
 import { vacationReadiness } from "@/lib/vacationReadiness";
 import { ManualVacationHistory, type ManualHistoryPayload } from "@/components/ManualVacationHistory";
 
@@ -70,6 +71,7 @@ interface EmployeeWithVacation extends Employee {
   periodos: VacationPeriod[];
   records: VacationRecord[];
   manualHistory: ManualHistoryRecord[];
+  pendenciaFerias?: PendenciaFeriasRow | null;
 }
 
 function fmtDate(d?: string | null) {
@@ -159,7 +161,9 @@ function ModalFerias({
   records,
   onClose,
   onSaved,
+  pendencia,
 }: {
+  pendencia?: PendenciaFeriasRow | null;
   emp: Employee;
   periodos: VacationPeriod[];
   records: VacationRecord[];
@@ -167,9 +171,10 @@ function ModalFerias({
   onSaved: () => void;
 }) {
   const [tipo, setTipo] = useState<"individual" | "coletiva">("individual");
-  const [dataInicio, setDataInicio] = useState("");
-  const [dataFim, setDataFim] = useState("");
-  const [obs, setObs] = useState("");
+  const sugestao = pendencia ? periodoSugeridoFerias(pendencia) : null;
+  const [dataInicio, setDataInicio] = useState(sugestao?.inicio || "");
+  const [dataFim, setDataFim] = useState(sugestao?.fim || "");
+  const [obs, setObs] = useState(pendencia ? `Pendência "Dar férias" do Programador${pendencia.solicitado_por_nome ? ` (solicitada por ${pendencia.solicitado_por_nome})` : ""}` : "");
   const [periodId, setPeriodId] = useState(periodos[0]?.id || "");
   const [saving, setSaving] = useState(false);
   const [erro, setErro] = useState("");
@@ -216,6 +221,14 @@ function ModalFerias({
         data: dataInicio,
       });
 
+      if (pendencia) {
+        const { data: au } = await supabase.auth.getUser();
+        const { error: errPend } = await (supabase as any).from("rh_pendencias_funcionario").update({
+          status: "aprovada", resolved_at: new Date().toISOString(), resolved_by: au?.user?.id || null,
+          parecer_gp: `Férias programadas: ${fmtDate(dataInicio)} → ${fmtDate(dataFim)} (${dias}d)`,
+        }).eq("id", pendencia.id).eq("company_id", COMPANY_ID);
+        if (errPend) { setErro(`Férias programadas, mas a pendência não foi baixada: ${errPend.message}`); setSaving(false); return; }
+      }
       onSaved();
     } catch (e: any) {
       setErro(e.message || "Erro ao salvar.");
@@ -527,6 +540,14 @@ function CardFuncionario({
             </div>
           )}
 
+          {emp.pendenciaFerias && (
+            <div style={{ background: "#fef9c3", border: "1px solid #fde047", borderRadius: 10, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: "#713f12" }}>
+              <strong>📋 Pendência “Dar férias” (WF Programador)</strong>
+              <div>Previsto: {fmtDate(emp.pendenciaFerias.data_efetiva)} · {periodoSugeridoFerias(emp.pendenciaFerias).dias} dias{emp.pendenciaFerias.solicitado_por_nome ? ` · por ${emp.pendenciaFerias.solicitado_por_nome}` : ""}</div>
+              {emp.pendenciaFerias.justificativa && <div style={{ opacity: 0.8 }}>{emp.pendenciaFerias.justificativa}</div>}
+            </div>
+          )}
+
           {/* Admissão */}
           <p style={{ fontSize: 11, color: "#9ca3af", marginBottom: 12 }}>
             Admissão: {fmtDate(emp.data_admissao)}
@@ -570,8 +591,8 @@ export default function ProgramacaoFerias() {
   const buscaInicial = searchParams.get("q") || "";
   const focoFuncionarioId = searchParams.get("funcionario_id") || "";
   const filtroParam = searchParams.get("filtro");
-  const filtroInicial: "todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" | "a_confirmar" | "sem_periodo" =
-    filtroParam === "pendente" || filtroParam === "vencido" || filtroParam === "coletiva" || filtroParam === "em_ferias" || filtroParam === "a_confirmar" || filtroParam === "sem_periodo"
+  const filtroInicial: "todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" | "a_confirmar" | "sem_periodo" | "dar_ferias" =
+    filtroParam === "pendente" || filtroParam === "vencido" || filtroParam === "coletiva" || filtroParam === "em_ferias" || filtroParam === "a_confirmar" || filtroParam === "sem_periodo" || filtroParam === "dar_ferias"
       ? filtroParam
       : "todos";
 
@@ -584,7 +605,7 @@ export default function ProgramacaoFerias() {
   const [manualEmp, setManualEmp] = useState<EmployeeWithVacation | null>(null);
   const [manualHistoryError, setManualHistoryError] = useState("");
   const [canManageHistory, setCanManageHistory] = useState(false);
-  const [filtro, setFiltro] = useState<"todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" | "a_confirmar" | "sem_periodo">(filtroInicial);
+  const [filtro, setFiltro] = useState<"todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" | "a_confirmar" | "sem_periodo" | "dar_ferias">(filtroInicial);
   const [focoAplicado, setFocoAplicado] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [naoConfirmarRecordId, setNaoConfirmarRecordId] = useState<string | null>(null);
@@ -632,6 +653,12 @@ export default function ProgramacaoFerias() {
       .select("*")
       .eq("company_id", COMPANY_ID)
       .order("data_inicio", { ascending: false });
+
+    const { data: pendRows } = await (supabase as any).from("rh_pendencias_funcionario")
+      .select("id,employee_id,tipo,status,justificativa,data_efetiva,payload,solicitado_por_nome,prioridade,created_at")
+      .eq("company_id", COMPANY_ID).eq("tipo", "outros").in("status", ["aberta", "em_analise"]).order("created_at", { ascending: false });
+    const pendFerias = new Map<string, PendenciaFeriasRow>();
+    for (const r of (pendRows || []) as PendenciaFeriasRow[]) if (isPendenciaFerias(r) && !pendFerias.has(r.employee_id)) pendFerias.set(r.employee_id, r);
 
     const manualHistory: ManualHistoryRecord[] = [];
     setManualHistoryError("");
@@ -709,6 +736,7 @@ export default function ProgramacaoFerias() {
         periodos: ((periods || []) as VacationPeriod[]).filter((p) => p.employee_id === e.id),
         records: recordsTyped.filter((r) => r.employee_id === e.id),
         manualHistory: manualHistory.filter((r) => r.employee_id === e.id),
+        pendenciaFerias: pendFerias.get(e.id) ?? null,
       };
     });
 
@@ -851,6 +879,7 @@ export default function ProgramacaoFerias() {
     if (!matchBusca) return false;
 
     const p = e.periodos.find(p => p.status !== "gozado");
+    if (filtro === "dar_ferias") return !!e.pendenciaFerias;
     if (filtro === "sem_periodo") return e.periodos.length === 0;
     if (filtro === "pendente") return p && p.periodo_fim <= hoje && p.status !== "gozado";
     if (filtro === "vencido") return p && p.status === "vencido";
@@ -869,6 +898,7 @@ export default function ProgramacaoFerias() {
     return p && p.periodo_fim <= hoje && p.status !== "gozado";
   }).length;
 
+  const totalDarFerias = employees.filter(e => e.pendenciaFerias).length;
   const totalColetiva = employees.filter(e => e.records.some(r => r.tipo === "coletiva")).length;
   const totalEmFerias = employees.filter(e => employeeOnVacationNow(e.records, hoje, e.status)).length;
   const totalAConfirmar = employees.filter((e) => e.records.some((r) => {
@@ -916,6 +946,7 @@ export default function ProgramacaoFerias() {
       <div className="flex overflow-x-auto border-b border-border bg-background sticky top-[60px] z-20">
         {([
           { id: "todos", label: "Todos" },
+          { id: "dar_ferias", label: `📋 Dar férias (${totalDarFerias})` },
           { id: "sem_periodo", label: `🗂️ Sem período (${totalSemPeriodo})` },
           { id: "pendente", label: `⚠️ Pendentes (${totalPendente})` },
           { id: "a_confirmar", label: `🔔 A confirmar (${totalAConfirmar})` },
@@ -934,6 +965,11 @@ export default function ProgramacaoFerias() {
         <p style={{ padding: "10px 12px", marginBottom: 12, borderRadius: 10, background: "#f0f9ff", color: "#075985", fontSize: 12 }}>
           <strong>Conferência do RH:</strong> {totalSemPeriodo} funcionário(s) sem período aquisitivo cadastrado. Admissão, última saída ou contador antigo não comprovam saldo; use a ficha individual antes de confirmar direitos.
         </p>
+        {totalDarFerias > 0 && (
+          <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, border: "1px solid #fde047", background: "#fefce8", color: "#713f12", fontSize: 12, fontWeight: 700, cursor: "pointer" }} onClick={() => setFiltro("dar_ferias")}>
+            📋 {totalDarFerias} pedido(s) “Dar férias” do WF Programador aguardando programação. Toque para ver.
+          </div>
+        )}
         {totalAConfirmar > 0 && (
           <div style={{
             marginBottom: 12,
@@ -1016,6 +1052,7 @@ export default function ProgramacaoFerias() {
           emp={modalEmp}
           periodos={employees.find(e => e.id === modalEmp.id)?.periodos || []}
           records={employees.find(e => e.id === modalEmp.id)?.records || []}
+          pendencia={employees.find(e => e.id === modalEmp.id)?.pendenciaFerias ?? null}
           onClose={() => setModalEmp(null)}
           onSaved={() => { setModalEmp(null); load(); }}
         />
