@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
-import { ArrowLeft, Plus, Car, Wrench, FileText, Columns3, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin, Radio, History, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plus, Car, Wrench, FileText, Columns3, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin, Radio, History, AlertTriangle, ClipboardCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useToast } from "@/hooks/use-toast";
@@ -1063,6 +1063,17 @@ export default function GestaoFrotasHome() {
             <div className="flex-1 text-left">
               <p className="font-display font-bold text-sm">Rastreamento em Tempo Real</p>
               <p className="text-xs text-muted-foreground">Onde está cada equipamento hoje — diário + transporte + pátio auto</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+          </button>
+
+          <button onClick={() => navigate(withReturnTo("/gestao-frotas/checklist"))} className="w-full rdo-card border-l-4 border-l-emerald-400 hover:shadow-md transition-all flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
+              <ClipboardCheck className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-display font-bold text-sm">Acompanhamento de Checklists</p>
+              <p className="text-xs text-muted-foreground">Atrasos, NÃO CONFORME, operou sem checklist e checklists sem diário</p>
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
           </button>

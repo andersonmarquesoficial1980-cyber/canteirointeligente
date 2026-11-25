@@ -53,6 +53,7 @@ const GestaoFrotasDashboard = lazy(() => import("./pages/GestaoFrotasDashboard")
 const GestaoFrotasDashboardRdo = lazy(() => import("./pages/GestaoFrotasDashboardRdo"));
 const GestaoFrotasHome = lazy(() => import("./pages/GestaoFrotasHome"));
 const GestaoFrotasRastreamento = lazy(() => import("./pages/GestaoFrotasRastreamento"));
+const GestaoFrotasChecklist = lazy(() => import("./pages/GestaoFrotasChecklist"));
 const GestaoFrotasMultas = lazy(() => import("./pages/GestaoFrotasMultas"));
 const GestaoFrotasVeiculo = lazy(() => import("./pages/GestaoFrotasVeiculo"));
 const EquipamentoProntuario = lazy(() => import("./pages/EquipamentoProntuario"));
@@ -464,6 +465,7 @@ function AppRoutes() {
         <Route path="/gestao-frotas/producao" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasProducao /></RequireModule>} />
         <Route path="/gestao-frotas/dashboard-rdo" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasDashboardRdo /></RequireModule>} />
         <Route path="/gestao-frotas/rastreamento" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasRastreamento /></RequireModule>} />
+        <Route path="/gestao-frotas/checklist" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasChecklist /></RequireModule>} />
         <Route path="/gestao-frotas/multas" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasMultas /></RequireModule>} />
         <Route path="/gestao-frotas/documentos" element={<RequireModule moduleId="gestao-frotas"><ManutencaoDocumentos /></RequireModule>} />
         <Route path="/equipamentos/prontuario/:id" element={<RequireModule moduleId="equipamentos"><EquipamentoProntuario /></RequireModule>} />
