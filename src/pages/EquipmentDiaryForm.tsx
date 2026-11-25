@@ -3354,6 +3354,13 @@ export default function EquipmentDiaryForm() {
                 <span className="text-sm font-bold text-foreground uppercase tracking-wide">
                   ✔️ CHECKLIST PRÉ-OPERAÇÃO
                 </span>
+                {checklistSubmittedAt ? (
+                  <span className="ml-2 text-[10px] font-bold rounded-full bg-emerald-500/15 text-emerald-600 px-2 py-0.5 normal-case">
+                    feito {new Date(checklistSubmittedAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                ) : (
+                  <span className="ml-2 text-[10px] font-bold rounded-full bg-amber-500/15 text-amber-600 px-2 py-0.5 normal-case">pendente — use WF Checklist antes de operar</span>
+                )}
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4">
                 <ChecklistSection

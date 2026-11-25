@@ -25,6 +25,7 @@ export interface Permissions {
   modulo_orcamentos: boolean;
   modulo_planejamento: boolean;
   modulo_refeicoes: boolean;
+  modulo_checklist: boolean;
   refeicoes_gestor: boolean;
   vagas_gestor: boolean;
 }
@@ -52,6 +53,7 @@ const DEFAULT_PERMISSIONS: Permissions = {
   modulo_orcamentos: false,
   modulo_planejamento: false,
   modulo_refeicoes: false,
+  modulo_checklist: false,
   refeicoes_gestor: false,
   vagas_gestor: false,
 };

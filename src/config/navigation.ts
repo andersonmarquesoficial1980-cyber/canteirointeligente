@@ -3,7 +3,7 @@
 // This file is the single source of truth for HUB navigation.
 // It is intentionally decoupled from any database or Edge Function logic.
 
-import { ClipboardList, Cog, Truck, Users, ShieldCheck, ListChecks, CalendarClock, FileCheck, Wrench, Fuel, BarChart3, LayoutDashboard, Car, UserCheck, Receipt, HardHat, FolderOpen, Calculator, LineChart, UtensilsCrossed } from "lucide-react";
+import { ClipboardList, Cog, Truck, Users, ShieldCheck, ListChecks, CalendarClock, FileCheck, Wrench, Fuel, BarChart3, LayoutDashboard, Car, UserCheck, Receipt, HardHat, FolderOpen, Calculator, LineChart, UtensilsCrossed, ClipboardCheck } from "lucide-react";
 
 export const HUB_MODULES = [
   { id: "obras", label: "WF Obras", subtitle: "Diário de Obras", icon: ClipboardList, route: "/obras", adminOnly: false },
@@ -14,6 +14,7 @@ export const HUB_MODULES = [
   { id: "demandas", label: "WF Transporte & Logística", subtitle: "Gestão de Tarefas", icon: ListChecks, route: "/demandas", adminOnly: false },
   // WF Documentos foi migrado para dentro do WF SST → aba Integração
   // { id: "documentos", label: "WF Documentos", subtitle: "Documentos com IA", icon: FileCheck, route: "/documentos", adminOnly: false },
+  { id: "checklist", label: "WF Checklist", subtitle: "Pré-operação antes de operar", icon: ClipboardCheck, route: "/checklist", adminOnly: false },
   { id: "manutencao", label: "WF Manutenção", subtitle: "OS & Documentos de Frotas", icon: Wrench, route: "/manutencao", adminOnly: false },
   { id: "abastecimento", label: "WF Abastecimento", subtitle: "Comboio, Posto e Shelbox", icon: Fuel, route: "/abastecimento", adminOnly: false },
   { id: "relatorios", label: "WF Relatórios", subtitle: "Relatórios por Equipamento", icon: BarChart3, route: "/relatorios", adminOnly: false },

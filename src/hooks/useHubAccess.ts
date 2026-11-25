@@ -97,12 +97,15 @@ export function useHubAccess() {
               orcamentos: "modulo_orcamentos",
               planejamento: "modulo_planejamento",
               refeicoes: "modulo_refeicoes",
+              checklist: "modulo_checklist",
             };
             if (!permissions) return false;
             const permKey = permMap[mod.id];
             // Módulos novos podem iniciar com gate apenas por company_modules
             // (liberação por cliente no Super Admin), antes da permissão individual.
             if (!permKey) return true;
+            // WF Checklist: quem já faz Diário de Equipamento também faz o checklist (não bloqueia operação).
+            if (mod.id === "checklist") return permissions.modulo_checklist === true || permissions.modulo_equipamentos === true;
             return permissions[permKey] === true;
           });
   return { modules, loading, semPerfil, isSuperAdmin, companyLogo };

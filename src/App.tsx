@@ -53,6 +53,7 @@ const GestaoFrotasDashboard = lazy(() => import("./pages/GestaoFrotasDashboard")
 const GestaoFrotasDashboardRdo = lazy(() => import("./pages/GestaoFrotasDashboardRdo"));
 const GestaoFrotasHome = lazy(() => import("./pages/GestaoFrotasHome"));
 const GestaoFrotasRastreamento = lazy(() => import("./pages/GestaoFrotasRastreamento"));
+const ChecklistHome = lazy(() => import("./pages/ChecklistHome"));
 const GestaoFrotasChecklist = lazy(() => import("./pages/GestaoFrotasChecklist"));
 const GestaoFrotasMultas = lazy(() => import("./pages/GestaoFrotasMultas"));
 const GestaoFrotasVeiculo = lazy(() => import("./pages/GestaoFrotasVeiculo"));
@@ -205,6 +206,7 @@ const MODULE_PERM_MAP: Record<string, string> = {
   "orcamentos": "modulo_orcamentos",
   "planejamento": "modulo_planejamento",
   "refeicoes": "modulo_refeicoes",
+  "checklist": "modulo_checklist",
 };
 
 function RequireModule({ moduleId, children }: { moduleId: string; children: JSX.Element }) {
@@ -230,7 +232,9 @@ function RequireModule({ moduleId, children }: { moduleId: string; children: JSX
 
   // 3. Usuário comum: verificar permissão individual
   const permKey = MODULE_PERM_MAP[moduleId];
-  if (permKey && permissions && !(permissions as any)[permKey]) {
+  // WF Checklist: libera também para quem tem WF Equipamentos (operadores de diário)
+  const checklistViaEquip = moduleId === "checklist" && !!(permissions as any)?.modulo_equipamentos;
+  if (permKey && permissions && !checklistViaEquip && !(permissions as any)[permKey]) {
     return <Navigate to="/" replace />;
   }
 
@@ -465,6 +469,7 @@ function AppRoutes() {
         <Route path="/gestao-frotas/producao" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasProducao /></RequireModule>} />
         <Route path="/gestao-frotas/dashboard-rdo" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasDashboardRdo /></RequireModule>} />
         <Route path="/gestao-frotas/rastreamento" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasRastreamento /></RequireModule>} />
+        <Route path="/checklist" element={<RequireModule moduleId="checklist"><ChecklistHome /></RequireModule>} />
         <Route path="/gestao-frotas/checklist" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasChecklist /></RequireModule>} />
         <Route path="/gestao-frotas/multas" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasMultas /></RequireModule>} />
         <Route path="/gestao-frotas/documentos" element={<RequireModule moduleId="gestao-frotas"><ManutencaoDocumentos /></RequireModule>} />
