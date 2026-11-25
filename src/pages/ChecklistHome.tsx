@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useCompanyModules } from "@/hooks/useCompanyModules";
 import ChecklistSection, { type ChecklistResult } from "@/components/equipment/ChecklistSection";
 
 const TZ = "America/Sao_Paulo";
@@ -55,6 +57,31 @@ export function groupLabelForEquipment(eq: { tipo?: string | null; frota?: strin
   return cfg.type;
 }
 
+/** Chave do cadastro "Operadores Habilitados" (equipment_type_operators) para o equipamento. */
+export function habilitacaoKey(eq: { tipo?: string | null; frota?: string | null }): string | null {
+  const cfg = checklistTypeForEquipment(eq);
+  if (!cfg) return null;
+  return cfg.truckType === "Comboio" ? "Comboio" : cfg.type;
+}
+
+/** Vínculo automático (só leitura) quando profiles.employee_id ainda não foi preenchido:
+ *  nome idêntico, ou nome do usuário contido no do funcionário/vice-versa — somente se o resultado for ÚNICO. */
+function matchEmployeeByName(nome: string, employees: { id: string; name: string }[]): string | null {
+  const n = norm(nome).replace(/\s+/g, " ");
+  if (!n) return null;
+  const exact = employees.filter((e) => norm(e.name).replace(/\s+/g, " ") === n);
+  if (exact.length === 1) return exact[0].id;
+  if (exact.length > 1) return null;
+  const tk = new Set(n.split(" "));
+  const cand = employees.filter((e) => {
+    const en = norm(e.name).replace(/\s+/g, " ");
+    const et = new Set(en.split(" "));
+    const sub = (a: Set<string>, b: Set<string>) => a.size >= 2 && [...a].every((x) => b.has(x));
+    return sub(tk, et) || sub(et, tk);
+  });
+  return cand.length === 1 ? cand[0].id : null;
+}
+
 export default function ChecklistHome() {
   const navigate = useNavigate();
   const goBack = useSmartBack("/");
@@ -62,6 +89,10 @@ export default function ChecklistHome() {
   const { session } = useAuth();
   const { profile } = useUserProfile();
   const companyId = profile?.company_id || null;
+  const { permissions } = usePermissions();
+  const { isSuperAdmin } = useCompanyModules();
+  // Quem acompanha/administra (admin, Gestão de Frotas, Manutenção) pode fazer de qualquer equipamento.
+  const verTudo = isSuperAdmin || !!(permissions as any)?.is_admin || !!(permissions as any)?.modulo_gestao_frotas || !!(permissions as any)?.modulo_manutencao;
 
   const now = useMemo(agoraSP, []);
   // Madrugada (até 5h) conta como turno noturno iniciado no dia anterior.
@@ -82,18 +113,42 @@ export default function ChecklistHome() {
     },
   });
 
-  const grupos = useMemo(() => {
-    const m = new Map<string, number>();
-    equipamentos.forEach((e: any) => { const g = groupLabelForEquipment(e); if (g) m.set(g, (m.get(g) || 0) + 1); });
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
-  }, [equipamentos]);
-
-  const opcoes = useMemo(
-    () => equipamentos.filter((e: any) => groupLabelForEquipment(e) === grupo),
-    [equipamentos, grupo],
+  const { data: habil, isLoading: loadingHabil } = useQuery({
+    queryKey: ["checklist-home-habilitacao", session?.user?.id],
+    enabled: !!session?.user?.id,
+    queryFn: async () => {
+      const uid = session!.user.id;
+      const { data: prof } = await (supabase as any).from("profiles").select("employee_id, nome_completo").eq("user_id", uid).maybeSingle();
+      let employeeId: string | null = prof?.employee_id || null;
+      let viaNome = false;
+      if (!employeeId) {
+        const { data: emps } = await (supabase as any).from("employees").select("id, name").eq("status", "ativo");
+        employeeId = matchEmployeeByName(prof?.nome_completo || "", (emps || []) as any[]);
+        viaNome = !!employeeId;
+      }
+      if (!employeeId) return { employeeId: null, tipos: [] as string[], viaNome };
+      const { data: links } = await (supabase as any).from("equipment_type_operators").select("equipment_type").eq("funcionario_id", employeeId);
+      return { employeeId, tipos: [...new Set(((links || []) as any[]).map((l) => l.equipment_type as string))], viaNome };
+    },
+  });
+  const tiposPermitidos = useMemo(() => (verTudo ? null : new Set(habil?.tipos || [])), [verTudo, habil]);
+  const equipamentosPermitidos = useMemo(
+    () => equipamentos.filter((e: any) => { const k = habilitacaoKey(e); return !!k && (!tiposPermitidos || tiposPermitidos.has(k)); }),
+    [equipamentos, tiposPermitidos],
   );
 
-  const selecionado = useMemo(() => equipamentos.find((e: any) => e.frota === fleet) || null, [equipamentos, fleet]);
+  const grupos = useMemo(() => {
+    const m = new Map<string, number>();
+    equipamentosPermitidos.forEach((e: any) => { const g = groupLabelForEquipment(e); if (g) m.set(g, (m.get(g) || 0) + 1); });
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
+  }, [equipamentosPermitidos]);
+
+  const opcoes = useMemo(
+    () => equipamentosPermitidos.filter((e: any) => groupLabelForEquipment(e) === grupo),
+    [equipamentosPermitidos, grupo],
+  );
+
+  const selecionado = useMemo(() => equipamentosPermitidos.find((e: any) => e.frota === fleet) || null, [equipamentosPermitidos, fleet]);
   const cfg = selecionado ? checklistTypeForEquipment(selecionado) : null;
 
   // Checklist já enviado hoje para esta frota/turno (não permite reenvio: preserva o horário real).
@@ -110,6 +165,8 @@ export default function ChecklistHome() {
 
   useEffect(() => { setResults([]); }, [fleet, period]);
   useEffect(() => { setFleet(""); }, [grupo]);
+  // Só um tipo habilitado: já abre direto nele.
+  useEffect(() => { if (grupos.length === 1 && grupo !== grupos[0][0]) setGrupo(grupos[0][0]); }, [grupos, grupo]);
 
   const enviar = async () => {
     if (!session?.user?.id || !companyId || !selecionado || !cfg) return;
@@ -183,7 +240,17 @@ export default function ChecklistHome() {
           <p className="text-[11px] text-muted-foreground">Data: {date.split("-").reverse().join("/")} (definida pelo sistema). O horário de envio é registrado pelo servidor.</p>
           <div className="space-y-1.5">
             <p className="text-[11px] font-bold uppercase text-muted-foreground">Tipo de equipamento</p>
-            {isLoading && <p className="text-xs text-muted-foreground">Carregando equipamentos...</p>}
+            {(isLoading || loadingHabil) && <p className="text-xs text-muted-foreground">Carregando equipamentos...</p>}
+            {!isLoading && !loadingHabil && grupos.length === 0 && (
+              <p className="text-xs text-rose-600 font-semibold">
+                {habil?.employeeId
+                  ? "Você não está habilitado para nenhum equipamento com checklist. Fale com a Gestão de Frotas."
+                  : "Seu usuário não está vinculado a um funcionário habilitado. Fale com a Gestão de Frotas."}
+              </p>
+            )}
+            {!verTudo && habil?.employeeId && grupos.length > 0 && (
+              <p className="text-[11px] text-muted-foreground">Mostrando apenas os equipamentos em que você está habilitado.</p>
+            )}
             <div className="grid grid-cols-2 gap-2">
               {grupos.map(([g, n]) => (
                 <button key={g} onClick={() => setGrupo(g)}
