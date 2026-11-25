@@ -344,6 +344,7 @@ function CardFuncionario({
   onAbrirFicha,
   onConfirmarProgramacao,
   onMarcarNaoConfirmada,
+  onEncerrarAgora,
   expanded,
   canManageWorkflow,
   canManageHistory,
@@ -355,6 +356,7 @@ function CardFuncionario({
   onAbrirFicha: () => void;
   onConfirmarProgramacao: (recordId: string) => void;
   onMarcarNaoConfirmada: (recordId: string) => void;
+  onEncerrarAgora: (record: VacationRecord) => void;
   expanded: boolean;
   canManageWorkflow: boolean;
   canManageHistory: boolean;
@@ -530,6 +532,11 @@ function CardFuncionario({
                   }} style={{ alignSelf: "flex-start", color: "#0055AA", fontSize: 11, fontWeight: 700 }}>
                     {copiedId === r.id ? "Resumo copiado" : "Copiar resumo para RH (WhatsApp)"}
                   </button>
+                  {r.workflow_status !== "nao_confirmada" && r.data_inicio <= hoje && r.data_fim >= hoje && (
+                    <button type="button" onClick={() => onEncerrarAgora(r)} style={{ alignSelf: "flex-start", height: 32, padding: "0 12px", borderRadius: 8, border: "1px solid #dc2626", background: "#fef2f2", color: "#b91c1c", fontSize: 12, fontWeight: 700 }}>
+                      ↩ Encerrar férias agora (retornou antes)
+                    </button>
+                  )}
                   {r.confirmacao_observacao && (
                     <p style={{ fontSize: 11, color: "#6b7280" }}>
                       {r.workflow_status === "nao_confirmada" ? "Motivo:" : "Confirmação:"} {r.confirmacao_observacao}
@@ -867,6 +874,28 @@ export default function ProgramacaoFerias() {
 
   // Filtros
   const hoje = new Date().toISOString().split("T")[0];
+  async function encerrarFeriasAgora(emp: EmployeeWithVacation, r: VacationRecord) {
+    if (!window.confirm(`Encerrar as férias de ${emp.name}? O período termina ontem e ele volta a ficar ATIVO (aparece nas listas de operadores).`)) return;
+    const ontem = new Date(Date.now() - 86400000 - 3 * 3600000).toISOString().slice(0, 10);
+    const hojeIso = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+    const dataInicio = r.data_inicio > ontem ? ontem : r.data_inicio;
+    const dias = Math.max(1, diffDays(dataInicio, ontem) + 1);
+    const { error } = await (supabase as any).from("vacation_records")
+      .update({ data_inicio: dataInicio, data_fim: ontem, dias, observacao: `Encerrado antes do previsto (retorno em ${fmtDate(hojeIso)}); previsto até ${fmtDate(r.data_fim)}` })
+      .eq("id", r.id).eq("company_id", COMPANY_ID);
+    if (error) { alert(`Não foi possível encerrar: ${error.message}`); return; }
+    // O banco ajusta employees.status (trigger). Confere o resultado antes de avisar sucesso.
+    const { data: chk } = await (supabase as any).from("employees").select("status").eq("id", emp.id).eq("company_id", COMPANY_ID).maybeSingle();
+    if (chk?.status === "ferias") {
+      await (supabase as any).from("employees").update({ status: "ativo" }).eq("id", emp.id).eq("company_id", COMPANY_ID).eq("status", "ferias");
+    }
+    await (supabase as any).from("employee_historico").insert({
+      employee_id: emp.id, company_id: COMPANY_ID, tipo: "retorno",
+      descricao: `Retorno antecipado de férias: previsto até ${fmtDate(r.data_fim)}, encerrado em ${fmtDate(hojeIso)}`, data: hojeIso,
+    });
+    load();
+  }
+
   const filtrados = employees.filter(e => {
     const nome = (e.name ?? "").toLowerCase();
     const matricula = String(e.matricula ?? "");
@@ -1012,6 +1041,7 @@ export default function ProgramacaoFerias() {
               onAbrirFicha={() => abrirFichaFuncionario(emp)}
               onConfirmarProgramacao={(recordId) => atualizarWorkflowFerias(recordId, "confirmada")}
               onMarcarNaoConfirmada={(recordId) => abrirModalNaoConfirmada(recordId)}
+              onEncerrarAgora={(r) => encerrarFeriasAgora(emp, r)}
               canManageWorkflow={isAdmin}
               canManageHistory={canManageHistory}
             />
