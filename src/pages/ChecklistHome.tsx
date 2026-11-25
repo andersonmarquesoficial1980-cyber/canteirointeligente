@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, ClipboardCheck, Moon, Sun } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,6 +44,17 @@ export function checklistTypeForEquipment(eq: { tipo?: string | null; frota?: st
   return null;
 };
 
+/** Grupo exibido ao operador (primeiro toque), sem digitação. */
+export function groupLabelForEquipment(eq: { tipo?: string | null; frota?: string | null }): string | null {
+  const cfg = checklistTypeForEquipment(eq);
+  if (!cfg) return null;
+  if (cfg.type === "Caminhões") return cfg.truckType === "Comboio" ? "Comboio" : cfg.truckType ? `Caminhão ${cfg.truckType}` : "Caminhões (outros)";
+  if (cfg.type === "Retro") return "Retroescavadeira";
+  if (cfg.type === "Carreta") return "Carreta / Cavalo / Prancha";
+  if (cfg.type === "Veículo") return "Veículo / Van / Micro-ônibus";
+  return cfg.type;
+}
+
 export default function ChecklistHome() {
   const navigate = useNavigate();
   const goBack = useSmartBack("/");
@@ -59,25 +69,29 @@ export default function ChecklistHome() {
   const date = period === "noturno" && now.hour < 5 ? addDays(now.date, -1) : now.date;
 
   const [fleet, setFleet] = useState("");
-  const [busca, setBusca] = useState("");
+  const [grupo, setGrupo] = useState("");
   const [results, setResults] = useState<ChecklistResult[]>([]);
   const [enviando, setEnviando] = useState(false);
 
   const { data: equipamentos = [], isLoading } = useQuery({
     queryKey: ["checklist-home-equipamentos"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("equipamentos").select("id, frota, tipo, status").order("frota");
+      const { data, error } = await (supabase as any).from("equipamentos").select("id, frota, nome, tipo, status").order("frota");
       if (error) throw error;
       return ((data || []) as any[]).filter((e) => e.frota && !/inativ|baixa|vendid/i.test(String(e.status || "")));
     },
   });
 
-  const opcoes = useMemo(() => {
-    const q = busca.trim().toLowerCase();
-    return equipamentos
-      .filter((e: any) => checklistTypeForEquipment(e))
-      .filter((e: any) => !q || String(e.frota).toLowerCase().includes(q) || String(e.tipo || "").toLowerCase().includes(q));
-  }, [equipamentos, busca]);
+  const grupos = useMemo(() => {
+    const m = new Map<string, number>();
+    equipamentos.forEach((e: any) => { const g = groupLabelForEquipment(e); if (g) m.set(g, (m.get(g) || 0) + 1); });
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
+  }, [equipamentos]);
+
+  const opcoes = useMemo(
+    () => equipamentos.filter((e: any) => groupLabelForEquipment(e) === grupo),
+    [equipamentos, grupo],
+  );
 
   const selecionado = useMemo(() => equipamentos.find((e: any) => e.frota === fleet) || null, [equipamentos, fleet]);
   const cfg = selecionado ? checklistTypeForEquipment(selecionado) : null;
@@ -95,6 +109,7 @@ export default function ChecklistHome() {
   });
 
   useEffect(() => { setResults([]); }, [fleet, period]);
+  useEffect(() => { setFleet(""); }, [grupo]);
 
   const enviar = async () => {
     if (!session?.user?.id || !companyId || !selecionado || !cfg) return;
@@ -166,13 +181,29 @@ export default function ChecklistHome() {
             ))}
           </div>
           <p className="text-[11px] text-muted-foreground">Data: {date.split("-").reverse().join("/")} (definida pelo sistema). O horário de envio é registrado pelo servidor.</p>
-          <Input placeholder="Buscar frota (ex.: CB024)" value={busca} onChange={(e) => setBusca(e.target.value)} />
-          <Select value={fleet} onValueChange={setFleet}>
-            <SelectTrigger><SelectValue placeholder={isLoading ? "Carregando frotas..." : "Selecione a frota..."} /></SelectTrigger>
-            <SelectContent>
-              {opcoes.map((e: any) => <SelectItem key={e.id} value={e.frota}>{e.frota} — {e.tipo}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-bold uppercase text-muted-foreground">Tipo de equipamento</p>
+            {isLoading && <p className="text-xs text-muted-foreground">Carregando equipamentos...</p>}
+            <div className="grid grid-cols-2 gap-2">
+              {grupos.map(([g, n]) => (
+                <button key={g} onClick={() => setGrupo(g)}
+                  className={`min-h-11 rounded-xl border px-2 py-2 text-left text-xs font-display font-bold ${grupo === g ? "bg-primary text-primary-foreground border-primary" : "bg-card"}`}>
+                  {g}<span className="block text-[10px] font-normal opacity-70">{n} equipamento{n > 1 ? "s" : ""}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {grupo && (
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-bold uppercase text-muted-foreground">Frota</p>
+              <Select value={fleet} onValueChange={setFleet}>
+                <SelectTrigger><SelectValue placeholder="Selecione a frota..." /></SelectTrigger>
+                <SelectContent>
+                  {opcoes.map((e: any) => <SelectItem key={e.id} value={e.frota}>{e.frota} — {e.nome || e.tipo}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {fleet && existente && (
@@ -200,7 +231,7 @@ export default function ChecklistHome() {
 
         {!fleet && (
           <div className="rdo-card flex items-center gap-3 text-sm text-muted-foreground">
-            <ClipboardCheck className="w-5 h-5" /> Selecione a frota para abrir o checklist do equipamento.
+            <ClipboardCheck className="w-5 h-5" /> Escolha o tipo de equipamento e a frota para abrir o checklist.
           </div>
         )}
         <button onClick={() => navigate("/equipamentos")} className="text-xs text-primary underline">Ir para o Diário de Equipamento</button>
