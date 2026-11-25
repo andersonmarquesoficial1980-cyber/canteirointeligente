@@ -32,12 +32,12 @@ export function concessionDeadline(acquisitionEnd: string): string {
   return iso(date);
 }
 
-export function activeVacation(records: VacationRecordInput[], today: string, employeeStatus?: string | null): boolean {
-  // Registros não confirmados antigos coexistem com o status operacional já marcado como férias.
-  // Uma programação cancelada/não confirmada jamais confirma gozo por si só.
-  return records.some((r) => r.workflow_status !== "nao_confirmada"
-    && r.data_inicio <= today && r.data_fim >= today
-    && (r.workflow_status === "confirmada" || employeeStatus?.toLowerCase() === "ferias"));
+export const FERIAS_VALIDAS = ["programada", "aguardando_confirmacao", "confirmada"] as const;
+
+/** Regra ÚNICA de "em férias hoje" (igual ao Quadro Pessoas e ao banco): registro vigente e não cancelado/não confirmado. */
+export function activeVacation(records: VacationRecordInput[], today: string, _employeeStatus?: string | null): boolean {
+  return records.some((r) => (FERIAS_VALIDAS as readonly string[]).includes(r.workflow_status ?? "programada")
+    && r.data_inicio <= today && r.data_fim >= today);
 }
 
 export function assessVacationPlan({ start, end, period, records, today, admission, kind = "individual",

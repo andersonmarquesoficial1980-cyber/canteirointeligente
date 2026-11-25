@@ -639,7 +639,7 @@ export default function GestaoPessoasEquipe() {
         .or("origem.is.null,origem.neq.TERCEIRO")
         .order("name"),
       (supabase as any).from("ci_equipes").select("nome,responsavel_employee_id").eq("ativa", true).order("nome"),
-      (supabase as any).from("vacation_records").select("id,employee_id,data_inicio,data_fim").order("data_inicio", { ascending: false }),
+      (supabase as any).from("vacation_records").select("id,employee_id,data_inicio,data_fim,workflow_status").neq("workflow_status", "nao_confirmada").order("data_inicio", { ascending: false }),
     ]).then(([employeesResp, equipesResp, feriasResp]) => {
       if (employeesResp.data) {
         const normalizados = (employeesResp.data as Funcionario[]).map((f) => ({

@@ -40,9 +40,9 @@ describe("programação de férias", () => {
     expect(check("2026-07-10", "2026-07-20", [planned]).errors).toContain("Já existe programação que coincide com as datas escolhidas.");
     expect(check("2026-07-10", "2026-07-20", [{ ...planned, workflow_status: "nao_confirmada" }]).errors).toEqual([]);
   });
-  it("não declara férias vigentes a partir de registro que não ocorrerá", () => {
+  it("férias vigentes: programada/confirmada contam; não confirmada não (mesma regra do Quadro)", () => {
     expect(activeVacation([{ ...planned, workflow_status: "nao_confirmada" }], "2026-07-04")).toBe(false);
-    expect(activeVacation([planned], "2026-07-04")).toBe(false);
+    expect(activeVacation([planned], "2026-07-04")).toBe(true);
     expect(activeVacation([{ ...planned, workflow_status: "confirmada" }], "2026-07-04")).toBe(true);
     expect(activeVacation([planned], "2026-07-04", "ferias")).toBe(true);
     expect(activeVacation([{ ...planned, workflow_status: "nao_confirmada" }], "2026-07-04", "ferias")).toBe(false);
