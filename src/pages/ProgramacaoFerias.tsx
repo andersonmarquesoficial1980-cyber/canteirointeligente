@@ -207,7 +207,7 @@ function ModalFerias({
         dias,
         observacao: obs || null,
         registrado_por: "admin",
-        workflow_status: reminderDate <= hoje ? "aguardando_confirmacao" : "programada",
+        workflow_status: "programada",
       };
       const { error: errRec } = await supabase.from("vacation_records").insert(record);
       if (errRec) throw errRec;
@@ -671,7 +671,7 @@ export default function ProgramacaoFerias() {
       if (!page || page.length < 500) break;
     }
 
-    if (isAdmin && userId) {
+    if (false && isAdmin && userId) { // lembrete de "confirmação prévia" desativado: programar já vale
       try {
         const limite = new Date(`${hoje}T12:00:00`);
         limite.setDate(limite.getDate() + 3);
@@ -949,7 +949,6 @@ export default function ProgramacaoFerias() {
           { id: "dar_ferias", label: `📋 Dar férias (${totalDarFerias})` },
           { id: "sem_periodo", label: `🗂️ Sem período (${totalSemPeriodo})` },
           { id: "pendente", label: `⚠️ Pendentes (${totalPendente})` },
-          { id: "a_confirmar", label: `🔔 A confirmar (${totalAConfirmar})` },
           { id: "coletiva", label: `🏢 C. Coletiva (${totalColetiva})` },
           { id: "em_ferias", label: `🏖️ Em férias (${totalEmFerias})` },
         ] as const).map(f => (
@@ -968,20 +967,6 @@ export default function ProgramacaoFerias() {
         {totalDarFerias > 0 && (
           <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, border: "1px solid #fde047", background: "#fefce8", color: "#713f12", fontSize: 12, fontWeight: 700, cursor: "pointer" }} onClick={() => setFiltro("dar_ferias")}>
             📋 {totalDarFerias} pedido(s) “Dar férias” do WF Programador aguardando programação. Toque para ver.
-          </div>
-        )}
-        {totalAConfirmar > 0 && (
-          <div style={{
-            marginBottom: 12,
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1px solid #fdba74",
-            background: "#fff7ed",
-            color: "#9a3412",
-            fontSize: 12,
-            fontWeight: 700,
-          }}>
-            🔔 {totalAConfirmar} programação(ões) de férias precisam de confirmação prévia do RH/Programador.
           </div>
         )}
 
