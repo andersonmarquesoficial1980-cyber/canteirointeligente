@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildDiaryFromRdoPayload, buildRdoSuggestions, fallbackSuggestion, climaToWorkStatus, describeSuggestion, isUsableRdo, previousMeter,
+  buildDiaryFromRdoPayload, buildRdoSuggestions, fallbackSuggestion, planMeters, buildBatchEntries, anchorsFrom, climaToWorkStatus, describeSuggestion, isUsableRdo, previousMeter,
   type RdoHeader,
 } from "./rdoDiarySuggestions";
 
@@ -82,5 +82,44 @@ describe("rdoDiarySuggestions", () => {
     expect(p.observations).toContain("Gerado a partir do RDO de FRANCISCO ALVES por Anderson em 26/11/2026");
     expect(p).not.toHaveProperty("odometer_initial");
     expect(describeSuggestion(s)).toBe("turno diurno · OGS 2539 · RODOVIA SP-264 · apontador FRANCISCO ALVES · (Cancelou)");
+  });
+
+  it("rateia o intervalo de 50 h entre os dias trabalhados e encadeia os medidores", () => {
+    const anchors = [
+      { date: "2026-11-04", period: "noturno", initial: 5682, final: 5682 },
+      { date: "2026-11-23", period: "noturno", initial: 5732, final: 5737 },
+    ];
+    const days = ["05", "06", "07", "08", "09"].map(d => ({ key: `2026-11-${d}|noturno`, date: `2026-11-${d}`, period: "noturno", working: d !== "08" }));
+    const plan = planMeters(days, anchors);
+    // 50 h / 4 dias trabalhados = 12,5; dia 08 (folga) parado
+    expect(plan.get("2026-11-05|noturno")).toMatchObject({ ini: 5682, fin: 5694.5, hours: 12.5 });
+    expect(plan.get("2026-11-08|noturno")).toMatchObject({ ini: 5719.5, fin: 5719.5, hours: 0 });
+    expect(plan.get("2026-11-09|noturno")!.fin).toBe(5732);
+    const total = [...plan.values()].reduce((a, p) => a + p.hours, 0);
+    expect(total).toBe(50);
+  });
+
+  it("resto de arredondamento vai para o último dia; sem leitura posterior não inventa horas", () => {
+    const a = [{ date: "2026-11-01", period: "noturno", initial: 100, final: 100 }, { date: "2026-11-10", period: "noturno", initial: 110, final: 110 }];
+    const d = [1, 2, 3].map(n => ({ key: `k${n}`, date: `2026-11-0${n + 1}`, period: "noturno", working: true }));
+    const p = planMeters(d, a);
+    expect([p.get("k1")!.hours, p.get("k2")!.hours, p.get("k3")!.hours]).toEqual([3.3, 3.3, 3.4]);
+    const tail = planMeters([{ key: "t", date: "2026-11-20", period: "noturno", working: true }], a);
+    expect(tail.get("t")).toMatchObject({ ini: 110, fin: 110, note: "sem leitura posterior para ratear" });
+  });
+
+  it("buildBatchEntries cobre dias sem RDO, vários turnos e pula 2º RDO no mesmo turno", () => {
+    const byDate = buildRdoSuggestions(
+      [rdo({ id: "a", data: "2026-11-09", turno: "noturno" }), rdo({ id: "b", data: "2026-11-09", turno: "noturno", local: "X" }),
+       rdo({ id: "c", data: "2026-11-07", turno: "diurno" }), rdo({ id: "d", data: "2026-11-07", turno: "noturno", clima: "Folga" })],
+      ["a", "b", "c", "d"].map(id => ({ rdo_id: id, frota: "BC66" })), new Map()).get("BC66");
+    const rows = [{ date: "2026-11-01", period: "noturno", meter_final: 1, odometer_final: null, ogs_number: "2539", location_address: "SP-280" }];
+    const { entries, skipped } = buildBatchEntries("BC66", ["2026-11-02", "2026-11-07", "2026-11-09"], byDate, rows);
+    expect(entries.map(e => e.key)).toEqual(["2026-11-02|noturno", "2026-11-07|diurno", "2026-11-07|noturno", "2026-11-09|noturno"]);
+    expect(entries[0]).toMatchObject({ status: "Disposição", working: false });
+    expect(entries[0].suggestion.noRdo).toBe(true);
+    expect(entries[2]).toMatchObject({ status: "Folga", working: false });
+    expect(skipped).toHaveLength(1);
+    expect(anchorsFrom([{ ...rows[0], meter_initial: 1 }], "hourmeter")[0]).toMatchObject({ initial: 1, final: 1 });
   });
 });

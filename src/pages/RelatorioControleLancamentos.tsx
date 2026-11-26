@@ -16,6 +16,7 @@ import { retroactiveInfo } from "@/lib/diaryDeadlineAlerts";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   buildRdoSuggestions, buildDiaryFromRdoPayload, fallbackSuggestion, describeSuggestion, previousMeter, normFleet,
+  buildBatchEntries, planMeters, anchorsFrom, lastKnown, type BatchEntry,
   type RdoSuggestion, type WorkStatusSuggestion,
 } from "@/lib/rdoDiarySuggestions";
 import { toast } from "sonner";
@@ -177,12 +178,13 @@ function CalCell({ rows, onClick, empty, rdoCount = 0 }: { rows: DiarioRow[]; on
 
 // ─── Detalhe (calendário + tabela) — usado no acordeão e no painel lateral ─────
 
-function Detalhe({ item, diasLabel, onCell, onCopy, onNavigate, compact, rdoByDate, rdoError, canCreate, onCreate }: {
+function Detalhe({ item, diasLabel, onCell, onCopy, onNavigate, compact, rdoByDate, rdoError, canCreate, onCreate, onBatch }: {
   item: ListItem;
   rdoByDate?: Map<string, RdoSuggestion[]>;
   rdoError: boolean;
   canCreate: boolean;
   onCreate: (s: RdoSuggestion, item: ListItem) => void;
+  onBatch: (item: ListItem) => void;
   diasLabel: { d: string; label: string; day: string; isWE: boolean }[];
   onCell: (titulo: string, rows: DiarioRow[]) => void;
   onCopy: (item: ListItem) => void;
@@ -260,9 +262,16 @@ function Detalhe({ item, diasLabel, onCell, onCopy, onNavigate, compact, rdoByDa
               ))}
             </div>
             {item.missing.length > 0 && (
-              <Button size="sm" variant="outline" className="no-print gap-1.5 bg-white" onClick={() => onCopy(item)}>
-                <Copy size={14} /> Copiar cobrança
-              </Button>
+              <div className="flex flex-col gap-2">
+                {canCreate && !rdoError && (
+                  <Button size="sm" className="no-print gap-1.5 bg-slate-800 hover:bg-slate-900 text-white" onClick={() => onBatch(item)}>
+                    Criar todos os diários
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" className="no-print gap-1.5 bg-white" onClick={() => onCopy(item)}>
+                  <Copy size={14} /> Copiar cobrança
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -399,11 +408,15 @@ export default function RelatorioControleLancamentos() {
     sug: RdoSuggestion; tipo: string; kind: "odometer" | "hourmeter";
     status: WorkStatusSuggestion | "Disposição" | "Manutenção"; period: "diurno" | "noturno";
     ini: string; fim: string; semBase: boolean;
-    ogs: string; local: string; operador: string;
+    ogs: string; local: string; operador: string; rateio?: number;
+  }>(null);
+  const [lote, setLote] = useState<null | {
+    item: ListItem; entries: BatchEntry[]; skipped: { date: string; reason: string }[];
+    off: Set<string>; operador: string; tipo: string; kind: "odometer" | "hourmeter"; anchors: ReturnType<typeof anchorsFrom>;
   }>(null);
   const [opcoesCriacao, setOpcoesCriacao] = useState<{ ogs: { numero: string; cliente: string; local: string }[]; operadores: string[] } | null>(null);
   useEffect(() => {
-    if (!createTarget || opcoesCriacao || !companyId) return;
+    if ((!createTarget && !lote) || opcoesCriacao || !companyId) return;
     (async () => {
       const [o, e] = await Promise.all([
         (supabase as any).from("ogs_reference").select("ogs_number,client_name,location_address").eq("company_id", companyId).order("ogs_number"),
@@ -414,7 +427,7 @@ export default function RelatorioControleLancamentos() {
         operadores: ((e.data || []) as any[]).map(x => x.name).filter(Boolean),
       });
     })().catch(() => setOpcoesCriacao({ ogs: [], operadores: [] }));
-  }, [createTarget, opcoesCriacao, companyId]);
+  }, [createTarget, lote, opcoesCriacao, companyId]);
   const [creating, setCreating] = useState(false);
 
   // Layout (opcional, por navegador): "padrao" = coluna central; "painel" = tela toda, lista à esquerda + detalhe à direita
@@ -773,6 +786,11 @@ export default function RelatorioControleLancamentos() {
       if (last?.period === "diurno" || last?.period === "noturno") period = last.period;
     }
     const prev = previousMeter(fleetRows, sug.date, period);
+    // Rateio do intervalo sem medição: ini/fin já vêm distribuídos entre os dias trabalhados faltantes
+    const { entries: batchE } = buildBatchEntries(item.key, item.missing, rdoSug.get(normFleet(item.key)), fleetRows);
+    const anchorsI = anchorsFrom(fleetRows, prev.kind);
+    const planned = planMeters(batchE.map(e => ({ key: e.key, date: e.suggestion.date, period: e.period, working: e.working })), anchorsI)
+      .get(`${sug.date}|${period}`);
     const tipoBase = (prev.equipmentType || item.tipo || "").trim();
     const kind = prev.value != null ? prev.kind
       : /CAMINH|VEICUL|VEÍCUL|CARRETA|COMBOIO/.test(tipoKey(tipoBase)) ? "odometer" : "hourmeter";
@@ -780,9 +798,67 @@ export default function RelatorioControleLancamentos() {
       sug, tipo: tipoBase, kind, period,
       status: sug.workStatus || "Disposição",
       ogs: sug.ogs || "", local: sug.local || "", operador: "",
-      ini: prev.value != null ? String(prev.value) : "", fim: prev.value != null ? String(prev.value) : "",
-      semBase: prev.value == null,
+      ini: planned?.ini != null ? String(planned.ini) : prev.value != null ? String(prev.value) : "",
+      fim: planned?.fin != null ? String(planned.fin) : prev.value != null ? String(prev.value) : "",
+      semBase: prev.value == null, rateio: planned && planned.hours > 0 ? planned.hours : 0,
     });
+  };
+
+  const abrirLote = (item: ListItem) => {
+    const fleetRows = [
+      ...diarios.filter(r => r.equipment_fleet === item.key && r.status === "enviado" && !r.is_auto),
+      ...meterBaselines.filter(b => b.equipment_fleet === item.key),
+    ] as any[];
+    const { entries, skipped } = buildBatchEntries(item.key, item.missing, rdoSug.get(normFleet(item.key)), fleetRows);
+    const prev = previousMeter(fleetRows, "9999-12-31", null);
+    const tipoBase = (prev.equipmentType || item.tipo || "").trim();
+    const kind = prev.value != null ? prev.kind : /CAMINH|VEICUL|VEÍCUL|CARRETA|COMBOIO/.test(tipoKey(tipoBase)) ? "odometer" : "hourmeter";
+    setLote({ item, entries, skipped, off: new Set(), operador: "", tipo: tipoBase, kind, anchors: anchorsFrom(fleetRows, kind) });
+  };
+
+  const lotePlano = useMemo(() => {
+    if (!lote) return null;
+    const ativos = lote.entries.filter(e => !lote.off.has(e.key));
+    return { ativos, plan: planMeters(ativos.map(e => ({ key: e.key, date: e.suggestion.date, period: e.period, working: e.working })), lote.anchors) };
+  }, [lote]);
+
+  const confirmarLote = async () => {
+    if (!lote || !lotePlano || !companyId || !profile) return;
+    const operador = lote.operador.trim();
+    if (operador && opcoesCriacao && !opcoesCriacao.operadores.includes(operador)) {
+      toast.error("Operador não encontrado entre os funcionários ativos. Escolha um da lista ou deixe em branco."); return;
+    }
+    setCreating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error("Sessão expirada. Entre novamente.");
+      const datas = lotePlano.ativos.map(e => e.suggestion.date).sort();
+      const { data: existing, error: exErr } = await (supabase as any).from("equipment_diaries").select("date,period")
+        .eq("company_id", companyId).eq("equipment_fleet", lote.item.key).eq("status", "enviado")
+        .gte("date", datas[0]).lte("date", datas[datas.length - 1]);
+      if (exErr) throw exErr;
+      const jaExiste = new Set<string>((existing || []).map((r: any) => `${r.date}|${r.period}`));
+      let criados = 0, pulados = 0, falhas = 0;
+      const hoje = new Date().toLocaleDateString("pt-BR");
+      for (const e of lotePlano.ativos) {
+        if (jaExiste.has(e.key)) { pulados++; continue; }
+        const m = lotePlano.plan.get(e.key);
+        const payload = buildDiaryFromRdoPayload({
+          suggestion: e.suggestion, workStatus: e.status, period: e.period, equipmentType: lote.tipo || "Equipamento",
+          meterKind: lote.kind, meterInitial: m?.ini ?? null, meterFinal: m?.fin ?? m?.ini ?? null,
+          operatorName: operador || null, companyId, userId: session.user.id, creatorName: profile.nome_completo, createdOn: hoje,
+        });
+        if (payload.ogs_number === "000") { payload.ogs_number = null; payload.location_address = payload.location_address || "BASE / PÁTIO CENTRAL"; }
+        const { error: insErr } = await (supabase as any).from("equipment_diaries").insert(payload);
+        if (insErr) { if (insErr.code === "23505") pulados++; else { falhas++; console.error("[lote]", e.key, insErr); } } else criados++;
+      }
+      (falhas ? toast.error : toast.success)(`${criados} diário(s) criado(s)${pulados ? `, ${pulados} já existiam` : ""}${falhas ? `, ${falhas} falharam` : ""}.`);
+      setLote(null);
+      await buscarDados();
+    } catch (err: any) {
+      console.error("[ControleLancamentos] lote", err);
+      toast.error(err?.message || "Falha ao criar os diários em lote.");
+    } finally { setCreating(false); }
   };
 
   const confirmarCriacao = async () => {
@@ -1120,7 +1196,7 @@ export default function RelatorioControleLancamentos() {
                     </button>
                     {exp && podeExpandir && (
                       <div className="border-t border-gray-100">
-                        <Detalhe item={item} diasLabel={diasLabel} onCell={abrirModal} onCopy={copiarCobranca} onNavigate={navigate} compact={false} rdoByDate={rdoSug.get(normFleet(item.key))} rdoError={rdoError} canCreate={canCreateFromRdo} onCreate={abrirCriacao} />
+                        <Detalhe item={item} diasLabel={diasLabel} onCell={abrirModal} onCopy={copiarCobranca} onNavigate={navigate} compact={false} rdoByDate={rdoSug.get(normFleet(item.key))} rdoError={rdoError} canCreate={canCreateFromRdo} onCreate={abrirCriacao} onBatch={abrirLote} />
                       </div>
                     )}
                   </div>
@@ -1163,13 +1239,70 @@ export default function RelatorioControleLancamentos() {
                       <span className={`text-xs font-bold px-3 py-1 rounded-full ${selecionado.badgeCls}`}>{selecionado.badgeText}</span>
                       <span className="text-xs text-gray-400">{selecionado.rows.length} registros</span>
                     </div>
-                    <Detalhe item={selecionado} diasLabel={diasLabel} onCell={abrirModal} onCopy={copiarCobranca} onNavigate={navigate} compact rdoByDate={rdoSug.get(normFleet(selecionado.key))} rdoError={rdoError} canCreate={canCreateFromRdo} onCreate={abrirCriacao} />
+                    <Detalhe item={selecionado} diasLabel={diasLabel} onCell={abrirModal} onCopy={copiarCobranca} onNavigate={navigate} compact rdoByDate={rdoSug.get(normFleet(selecionado.key))} rdoError={rdoError} canCreate={canCreateFromRdo} onCreate={abrirCriacao} onBatch={abrirLote} />
                   </>
                 )}
               </div>
             </div>
           )}
         </div>
+
+        {/* LOTE: criar todos os diários faltantes da frota */}
+        {lote && lotePlano && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 no-print" onClick={() => !creating && setLote(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="bg-slate-800 text-white px-5 py-4 rounded-t-2xl">
+                <h3 className="font-bold text-base">Criar diários em lote — {lote.item.titulo}</h3>
+                <p className="text-slate-300 text-xs">
+                  {lotePlano.ativos.length} diário(s) · {[...lotePlano.plan.values()].reduce((a, p) => a + p.hours, 0).toLocaleString("pt-BR")} h rateadas entre os dias trabalhados · desmarque o que não quiser criar
+                </p>
+              </div>
+              <div className="p-4 overflow-auto text-xs">
+                <table className="w-full">
+                  <thead><tr className="bg-slate-50 text-gray-500 text-left">
+                    {["", "Data", "Turno", "Status", "OGS", "Local", lote.kind === "odometer" ? "Odo.Ini" : "Hor.Ini", lote.kind === "odometer" ? "Odo.Fin" : "Hor.Fin", "Horas", "Origem"].map(h => <th key={h} className="px-2 py-1.5 font-semibold whitespace-nowrap">{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {lote.entries.map(e => {
+                      const on = !lote.off.has(e.key);
+                      const m = lotePlano.plan.get(e.key);
+                      return (
+                        <tr key={e.key} className={`border-b border-gray-100 ${on ? "" : "opacity-40"} ${e.suggestion.noRdo ? "bg-amber-50/60" : ""}`}>
+                          <td className="px-2 py-1"><input type="checkbox" checked={on} onChange={() => setLote(l => { if (!l) return l; const off = new Set(l.off); off.has(e.key) ? off.delete(e.key) : off.add(e.key); return { ...l, off }; })} /></td>
+                          <td className="px-2 py-1 whitespace-nowrap font-medium">{fmtShort(e.suggestion.date)}</td>
+                          <td className="px-2 py-1 capitalize">{e.period}</td>
+                          <td className="px-2 py-1"><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor(e.status)}`}>{e.status}</span></td>
+                          <td className="px-2 py-1">{e.suggestion.ogs || "—"}</td>
+                          <td className="px-2 py-1 max-w-[220px] truncate" title={e.suggestion.local || ""}>{e.suggestion.local || "—"}</td>
+                          <td className="px-2 py-1 text-center">{on ? (m?.ini ?? "—") : "—"}</td>
+                          <td className="px-2 py-1 text-center font-semibold">{on ? (m?.fin ?? "—") : "—"}</td>
+                          <td className="px-2 py-1 text-center">{on && m?.hours ? `+${m.hours}` : "—"}</td>
+                          <td className="px-2 py-1 whitespace-nowrap">{e.suggestion.noRdo ? <span className="text-amber-700 font-semibold">sem RDO (último local)</span> : "RDO"}{on && m?.note ? <span className="text-red-600"> · {m.note}</span> : null}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {lote.skipped.length > 0 && (
+                  <p className="mt-2 text-amber-700">Não incluídos: {lote.skipped.map(x => `${fmtShort(x.date)} — ${x.reason}`).join("; ")}.</p>
+                )}
+              </div>
+              <div className="px-5 py-4 border-t flex flex-wrap items-end gap-3">
+                <label className="text-xs font-semibold text-gray-500 flex-1 min-w-[220px]">OPERADOR (opcional, vale para todos)
+                  <Input list="cl-operadores-lote" value={lote.operador} onChange={e => setLote({ ...lote, operador: e.target.value })} className="mt-1 h-9 text-sm" />
+                  <datalist id="cl-operadores-lote">{(opcoesCriacao?.operadores || []).map(n => <option key={n} value={n} />)}</datalist>
+                </label>
+                <p className="text-[11px] text-slate-500 flex-[2] min-w-[260px]">
+                  O intervalo sem medição é dividido igualmente entre os dias “Trabalhando”; Folga/Cancelou/Disposição ficam com inicial = final. Dias sem RDO entram como Disposição no último local conhecido — desmarque se não souber. Tudo entra como enviado, com a origem nas observações.
+                </p>
+                <Button variant="outline" size="sm" disabled={creating} onClick={() => setLote(null)}>Cancelar</Button>
+                <Button size="sm" disabled={creating || lotePlano.ativos.length === 0} onClick={confirmarLote} className="bg-slate-800 hover:bg-slate-900 text-white">
+                  {creating ? "Criando..." : `Criar ${lotePlano.ativos.length} diário(s)`}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* CRIAR DIÁRIO A PARTIR DO RDO */}
         {createTarget && (
@@ -1222,7 +1355,9 @@ export default function RelatorioControleLancamentos() {
                 <p className="text-xs text-slate-500">
                   {createTarget.semBase
                     ? "Sem leitura anterior no histórico carregado: o medidor ficará em branco se não for informado."
-                    : "Medidor pré-preenchido com o último final conhecido (sem horas trabalhadas). Informe o final real se souber."}
+                    : createTarget.rateio
+                      ? `Medidor com rateio do intervalo sem medição: +${createTarget.rateio} h neste dia (diluído entre os dias trabalhados faltantes). Ajuste se souber o real.`
+                      : "Medidor pré-preenchido com o último final conhecido (sem horas trabalhadas). Informe o final real se souber."}
                   {" "}O diário entra como <strong>enviado</strong>, com a origem “gerado a partir do RDO” nas observações.
                 </p>
                 <div className="flex justify-end gap-2 pt-1">

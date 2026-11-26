@@ -204,3 +204,119 @@ export function buildDiaryFromRdoPayload(i: CreateFromRdoInput) {
     ...meters,
   };
 }
+
+// ─── Rateio do intervalo sem medição + lote ─────────────────────────────────
+
+export interface LastKnownRow extends MeterRow {
+  ogs_number?: string | null;
+  location_address?: string | null;
+  meter_initial?: number | null;
+  odometer_initial?: number | null;
+}
+
+/** Último local/turno conhecido da frota antes da data (ponto de partida para dias sem RDO). */
+export function lastKnown(rows: LastKnownRow[], date: string) {
+  const last = rows
+    .filter(r => r.date < date && (r.ogs_number || r.location_address))
+    .sort((a, b) => a.date.localeCompare(b.date) || shift(a.period) - shift(b.period) ||
+      String(a.created_at || "").localeCompare(String(b.created_at || "")))
+    .pop();
+  return last
+    ? { ogs: last.ogs_number || null, local: last.location_address || null,
+        period: (last.period === "noturno" ? "noturno" : last.period === "diurno" ? "diurno" : null) as "diurno" | "noturno" | null }
+    : null;
+}
+
+export interface MeterAnchor { date: string; period: string | null; created_at?: string | null; initial: number | null; final: number | null }
+
+export function anchorsFrom(rows: LastKnownRow[], kind: "odometer" | "hourmeter"): MeterAnchor[] {
+  return rows.map(r => ({
+    date: r.date, period: r.period, created_at: r.created_at,
+    initial: (kind === "odometer" ? r.odometer_initial : r.meter_initial) ?? null,
+    final: (kind === "odometer" ? r.odometer_final : r.meter_final) ?? null,
+  }));
+}
+
+export interface PlanEntry { key: string; date: string; period: string | null; working: boolean }
+export interface PlannedMeter { ini: number | null; fin: number | null; hours: number; note?: string }
+
+const pos = (d: { date: string; period: string | null }) => `${d.date}:${shift(d.period)}`;
+const T = (n: number) => Math.round(n * 10); // décimos (horímetro 0,1 h)
+
+/**
+ * Dilui a diferença entre o último final anterior e o primeiro inicial posterior
+ * (ex.: 5682 → 5732 = 50 h) igualmente entre os dias "Trabalhando" do intervalo; demais dias ficam parados
+ * (inicial = final). O resto de arredondamento vai para o último dia trabalhado. Encadeia inicial = final anterior.
+ */
+export function planMeters(entries: PlanEntry[], anchorsIn: MeterAnchor[]): Map<string, PlannedMeter> {
+  const anchors = [...anchorsIn].sort((a, b) => pos(a).localeCompare(pos(b)) ||
+    String(a.created_at || "").localeCompare(String(b.created_at || "")));
+  const ordered = [...entries].sort((a, b) => pos(a).localeCompare(pos(b)));
+  const groups = new Map<string, PlanEntry[]>();
+  const bounds = new Map<string, { prev?: MeterAnchor; next?: MeterAnchor }>();
+  ordered.forEach(e => {
+    const p = pos(e);
+    const prev = [...anchors].reverse().find(a => pos(a) < p);
+    const next = anchors.find(a => pos(a) > p);
+    const k = `${prev ? pos(prev) + (prev.created_at || "") : "-"}|${next ? pos(next) + (next.created_at || "") : "-"}`;
+    groups.set(k, [...(groups.get(k) || []), e]);
+    bounds.set(k, { prev, next });
+  });
+
+  const out = new Map<string, PlannedMeter>();
+  groups.forEach((list, k) => {
+    const { prev, next } = bounds.get(k)!;
+    if (prev?.final == null) {
+      list.forEach(e => out.set(e.key, { ini: null, fin: null, hours: 0, note: "sem medidor anterior" }));
+      return;
+    }
+    const totalT = next?.initial != null ? T(next.initial) - T(prev.final) : null;
+    const workers = list.filter(e => e.working);
+    let note: string | undefined;
+    let pool = 0;
+    if (totalT == null) note = "sem leitura posterior para ratear";
+    else if (totalT < 0) note = "medidor posterior menor que o anterior";
+    else if (totalT > 0 && workers.length === 0) note = `${totalT / 10} h sem dia trabalhado para ratear`;
+    else pool = totalT;
+
+    const base = workers.length ? Math.floor(pool / workers.length) : 0;
+    const lastWorker = workers[workers.length - 1];
+    let running = T(prev.final);
+    list.forEach(e => {
+      const share = e.working && pool > 0 ? (e === lastWorker ? pool - base * (workers.length - 1) : base) : 0;
+      out.set(e.key, { ini: running / 10, fin: (running + share) / 10, hours: share / 10, note });
+      running += share;
+    });
+  });
+  return out;
+}
+
+export interface BatchEntry {
+  key: string;
+  suggestion: RdoSuggestion;
+  period: "diurno" | "noturno";
+  status: WorkStatusSuggestion | "Disposição";
+  working: boolean;
+}
+
+/** Uma entrada por dia/turno faltante (todos os RDOs; sem RDO usa o último local). Segundo RDO no mesmo turno é pulado. */
+export function buildBatchEntries(
+  fleet: string, missing: string[], byDate: Map<string, RdoSuggestion[]> | undefined, rows: LastKnownRow[],
+): { entries: BatchEntry[]; skipped: { date: string; reason: string }[] } {
+  const entries: BatchEntry[] = [];
+  const skipped: { date: string; reason: string }[] = [];
+  [...missing].sort().forEach(date => {
+    const last = lastKnown(rows, date);
+    const sugs = byDate?.get(date) || [];
+    const list = sugs.length ? sugs : [fallbackSuggestion(fleet, date, last)];
+    const used = new Set<string>();
+    list.forEach(sg => {
+      const period = sg.period || last?.period || "diurno";
+      if (used.has(period)) { skipped.push({ date, reason: `2º RDO no turno ${period} (o banco aceita 1 diário por turno)` }); return; }
+      used.add(period);
+      const status = sg.workStatus || "Disposição";
+      entries.push({ key: `${date}|${period}`, suggestion: sg, period, status, working: status === "Trabalhando" });
+    });
+  });
+  return { entries, skipped };
+}
