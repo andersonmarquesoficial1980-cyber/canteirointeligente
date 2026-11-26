@@ -15,6 +15,9 @@ export interface TechnicalExtrasForm {
   controle_tecnologico_nota: number;
   sinalizacao_ausente_motivo: string;
   controle_tecnologico_ausente_motivo: string;
+  meta_contratual: "" | "sim" | "nao";
+  meta_contratual_motivo: string;
+  meta_contratual_outro: string;
 }
 
 export const TECHNICAL_EXTRAS_DEFAULTS = {
@@ -33,6 +36,9 @@ export const TECHNICAL_EXTRAS_DEFAULTS = {
   controle_tecnologico_nota: 0,
   sinalizacao_ausente_motivo: "",
   controle_tecnologico_ausente_motivo: "",
+  meta_contratual: "" as "" | "sim" | "nao",
+  meta_contratual_motivo: "",
+  meta_contratual_outro: "",
 };
 
 /** Motivos de liberação fora do horário (texto exato gravado e usado pelo Dashboard). */
@@ -78,7 +84,12 @@ export function getTechnicalExtrasError(
   status: "enviado" | "rascunho",
   opts?: { simplificado?: boolean },
 ): string | null {
-  if (status !== "enviado" || !form.houve_producao || opts?.simplificado) return null;
+  if (status !== "enviado" || !form.houve_producao) return null;
+  // Meta contratual vale também para OGS simplificada (Quantitativos continua visível)
+  if (form.meta_contratual === "") return "Informe se atingiu a meta contratual";
+  if (form.meta_contratual === "nao" && !form.meta_contratual_motivo) return "Selecione o motivo de não ter atingido a meta contratual";
+  if (form.meta_contratual === "nao" && form.meta_contratual_motivo === "Outro" && !form.meta_contratual_outro.trim()) return "Descreva qual foi o outro motivo de não atingir a meta";
+  if (opts?.simplificado) return null;
   if (form.retrabalho && !form.retrabalho_oficio.trim()) return "Preencha a Obs Retrabalho";
   if (form.autorizacao_no_horario === "") return "Informe se a obra foi liberada no horário previsto";
   if (form.autorizacao_no_horario === "nao" && !form.autorizacao_motivo) return "Selecione o motivo da liberação fora do horário";

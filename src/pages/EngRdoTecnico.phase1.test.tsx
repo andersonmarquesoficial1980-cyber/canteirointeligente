@@ -16,7 +16,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
       : table === "fornecedores" ? [{ nome: "Usina atual", tipo_insumos: ["Massa Asfáltica"] }, { nome: "Usina legada", tipo_insumo: "Massa Asfáltica" }, { nome: "Óleo", tipo_insumos: ["Óleo Diesel"] }]
       : table === "rdo_engenheiro" ? {
         id: "rdo-teste", ogs_id: ogs.id, ogs_number: ogs.ogs_number, data: "2026-10-20",
-        houve_producao: true, choveu: false, equipamentos_conforme: true, autorizacao_no_horario: true, sinalizacao_presente: true, sinalizacao_nota: 4, controle_tecnologico_presente: true, controle_tecnologico_nota: 3, sinalizacao_vertical_nota: 5, status: "enviado", usina_programada: "Usina histórica", tipo_servico: "ENSAIOS E EXTRAÇÕES",
+        houve_producao: true, choveu: false, equipamentos_conforme: true, autorizacao_no_horario: true, sinalizacao_presente: true, sinalizacao_nota: 4, controle_tecnologico_presente: true, controle_tecnologico_nota: 3, sinalizacao_vertical_nota: 5, meta_contratual_atingida: true, status: "enviado", usina_programada: "Usina histórica", tipo_servico: "ENSAIOS E EXTRAÇÕES",
       } : [];
     const result = Promise.resolve({ data, error: null });
     let updating = false;
@@ -53,6 +53,7 @@ const NOTA_SINALIZACAO = "Nível de qualidade, planejamento e disponibilidade da
 const NOTA_CT = "Nível de qualidade, planejamento e disponibilidade da equipe de controle tecnológico *";
 const NOTA_VERTICAL = "Qualidade da sinalização vertical (balizadores e placas) hoje *";
 function preencherApoio() {
+  fireEvent.click(question("Atingiu meta contratual? *").getByRole("button", { name: "Sim" }));
   fireEvent.click(question("A obra foi liberada no horário previsto?").getByRole("button", { name: "Sim" }));
   fireEvent.click(question("Equipe de sinalização presente na obra no horário programado?").getByRole("button", { name: "Sim" }));
   fireEvent.click(question(NOTA_SINALIZACAO).getByRole("button", { name: "4 estrelas" }));
@@ -202,6 +203,31 @@ describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
     expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Avalie a sinalização vertical (1 a 5)" }));
     await act(async () => { submit(mode, true); });
     expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ status: "rascunho", sinalizacao_vertical_nota: null }));
+  });
+
+  it("meta contratual: Não pede motivo da lista; Outro abre campo de texto e grava os 3 campos", async () => {
+    await mount(mode);
+    fireEvent.click(question("Atingiu meta contratual? *").getByRole("button", { name: "Não" }));
+    expect(screen.getByRole("radio", { name: "Chuva / condições climáticas" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Projeto sem frente suficiente" })).toBeInTheDocument();
+    await act(async () => { submit(mode); });
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Selecione o motivo de não ter atingido a meta contratual" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Outro" }));
+    await act(async () => { submit(mode); });
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Descreva qual foi o outro motivo de não atingir a meta" }));
+    fireEvent.change(screen.getByPlaceholderText("Descreva o motivo"), { target: { value: "Greve de caminhoneiros" } });
+    await act(async () => { submit(mode); });
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ meta_contratual_atingida: false, meta_contratual_motivo: "Outro", meta_contratual_outro: "Greve de caminhoneiros" }));
+  });
+
+  it("meta contratual: Sim limpa motivo e Sim é gravado como true", async () => {
+    await mount(mode);
+    fireEvent.click(question("Atingiu meta contratual? *").getByRole("button", { name: "Não" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Sinalização / Siga e Pare" }));
+    fireEvent.click(question("Atingiu meta contratual? *").getByRole("button", { name: "Sim" }));
+    expect(screen.queryByRole("radio", { name: "Sinalização / Siga e Pare" })).not.toBeInTheDocument();
+    await act(async () => { submit(mode); });
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ meta_contratual_atingida: true, meta_contratual_motivo: null, meta_contratual_outro: null }));
   });
 
   it("dia sem produção oculta Apoio e Qualidade e não grava retrabalho, caminhões nem notas", async () => {

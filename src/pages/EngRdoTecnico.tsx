@@ -7,7 +7,7 @@ import { TriangleAlert } from "lucide-react";
 import { ArrowLeft, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTiposServico } from "@/hooks/useFilteredData";
-import { ApoioObraSection, CaminhoesBasculanteField, RetrabalhoFields } from "@/components/rdo/RdoTecnicoExtras";
+import { ApoioObraSection, CaminhoesBasculanteField, MetaContratualSection, RetrabalhoFields } from "@/components/rdo/RdoTecnicoExtras";
 import { TECHNICAL_EXTRAS_DEFAULTS, boolToSimNao, getTechnicalExtrasError, isOgsRdoSimplificada, OGS_SIMPLIFICADA_PAYLOAD_RESET, simNaoToBool, toIntOrNull } from "@/lib/rdoTecnicoExtras";
 import { loadRdoTecnicoTeams } from "@/lib/rdoTecnicoTeams";
 import { loadEngineeringPlants } from "@/lib/engineeringPlants";
@@ -289,6 +289,9 @@ export default function EngRdoTecnico() {
       sinalizacao_vertical_nota: semProducao ? null : form.sinalizacao_vertical_nota || null,
       qtd_caminhoes_fresa: null,
       perc_conclusao_via: semProducao ? null : toNum(form.perc_conclusao_via),
+      meta_contratual_atingida: semProducao ? null : simNaoToBool(form.meta_contratual),
+      meta_contratual_motivo: !semProducao && form.meta_contratual === "nao" ? form.meta_contratual_motivo || null : null,
+      meta_contratual_outro: !semProducao && form.meta_contratual === "nao" && form.meta_contratual_motivo === "Outro" ? form.meta_contratual_outro.trim() || null : null,
       equipamentos_conforme: semProducao ? null : form.equipamentos_conforme === "" ? null : form.equipamentos_conforme === "sim",
       equipamentos_nao_conformes: semProducao
         ? null
@@ -688,6 +691,9 @@ export default function EngRdoTecnico() {
                 <p className="text-xs text-muted-foreground italic">Selecione um tipo de serviço acima para ver os campos de produção</p>
               )}
             </div>
+
+            {/* Seção 3a — Meta Contratual */}
+            <MetaContratualSection form={form} set={set} />
 
             {/* Seção 3b — Informações Adicionais */}
             {!obraSimplificada && (

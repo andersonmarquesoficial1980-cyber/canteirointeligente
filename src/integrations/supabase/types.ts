@@ -6131,6 +6131,9 @@ export type Database = {
           ogs_number: string | null
           outro_motivo_sem_producao: string | null
           perc_conclusao_via: number | null
+          meta_contratual_atingida: boolean | null
+          meta_contratual_motivo: string | null
+          meta_contratual_outro: string | null
           qtd_caminhoes_fresa: number | null
           rachao_ton: number | null
           fx_c_ton: number | null
@@ -6205,6 +6208,9 @@ export type Database = {
           ogs_number?: string | null
           outro_motivo_sem_producao?: string | null
           perc_conclusao_via?: number | null
+          meta_contratual_atingida?: boolean | null
+          meta_contratual_motivo?: string | null
+          meta_contratual_outro?: string | null
           qtd_caminhoes_fresa?: number | null
           rachao_ton?: number | null
           fx_c_ton?: number | null
@@ -6279,6 +6285,9 @@ export type Database = {
           ogs_number?: string | null
           outro_motivo_sem_producao?: string | null
           perc_conclusao_via?: number | null
+          meta_contratual_atingida?: boolean | null
+          meta_contratual_motivo?: string | null
+          meta_contratual_outro?: string | null
           qtd_caminhoes_fresa?: number | null
           rachao_ton?: number | null
           fx_c_ton?: number | null

@@ -6,6 +6,7 @@ import { ArrowLeft, FileDown, FileSpreadsheet, Loader2, Pencil, Trash2 } from "l
 import * as XLSX from "xlsx";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useToast } from "@/hooks/use-toast";
+import { motivoMetaLabel } from "@/lib/rdoTecnicoMetaContratual";
 
 interface Rdo {
   id: string;
@@ -49,6 +50,9 @@ interface Rdo {
   autorizacao_no_horario: boolean | null;
   autorizacao_atraso_detalhe: string | null;
   autorizacao_motivo: string | null;
+  meta_contratual_atingida?: boolean | null;
+  meta_contratual_motivo?: string | null;
+  meta_contratual_outro?: string | null;
   autorizacao_horario_previsto: string | null;
   autorizacao_horario_real: string | null;
   sinalizacao_presente: boolean | null;
@@ -202,6 +206,8 @@ export default function EngRdoTecnicoDetalhe() {
         ["Retrabalho", rdo.retrabalho ? `Sim — ${rdo.retrabalho_oficio || "sem observação"}` : "Não"],
         ["Caminhão Basculante (Exceto Massa)", fmtNum(rdo.qtd_caminhoes_basculante)],
         ["Obra liberada no horário previsto", yn(rdo.autorizacao_no_horario)],
+        ["Atingiu meta contratual", yn(rdo.meta_contratual_atingida ?? null)],
+        ["Motivo de não atingir a meta", rdo.meta_contratual_atingida === false ? motivoMetaLabel(rdo) : "—"],
         ["Motivo da liberação fora do horário", rdo.autorizacao_motivo || "—"],
         ["Horário previsto / liberada", rdo.autorizacao_horario_previsto || rdo.autorizacao_horario_real ? `${(rdo.autorizacao_horario_previsto || "—").slice(0, 5)} / ${(rdo.autorizacao_horario_real || "—").slice(0, 5)}` : "—"],
         ["Justificativa da liberação fora do horário", rdo.autorizacao_atraso_detalhe || "—"],
@@ -410,6 +416,8 @@ export default function EngRdoTecnicoDetalhe() {
             <Row label="Retrabalho" value={rdo.retrabalho ? `Sim — ${rdo.retrabalho_oficio || "sem observação"}` : rdo.retrabalho === false ? "Não" : null} />
             <Row label="Caminhão Basculante (Exceto Massa)" value={rdo.qtd_caminhoes_basculante != null ? String(rdo.qtd_caminhoes_basculante) : null} />
             <Row label="Obra liberada no horário previsto" value={yn(rdo.autorizacao_no_horario) === "—" ? null : yn(rdo.autorizacao_no_horario)} />
+            <Row label="Atingiu meta contratual" value={yn(rdo.meta_contratual_atingida ?? null) === "—" ? null : yn(rdo.meta_contratual_atingida ?? null)} />
+            <Row label="Motivo de não atingir a meta" value={rdo.meta_contratual_atingida === false ? motivoMetaLabel(rdo) : null} />
             <Row label="Motivo da liberação fora do horário" value={rdo.autorizacao_motivo} />
             <Row label="Horário previsto / liberada" value={rdo.autorizacao_horario_previsto || rdo.autorizacao_horario_real ? `${(rdo.autorizacao_horario_previsto || "—").slice(0, 5)} / ${(rdo.autorizacao_horario_real || "—").slice(0, 5)}` : null} />
             <Row label="Justificativa da liberação fora do horário" value={rdo.autorizacao_atraso_detalhe} />

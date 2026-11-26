@@ -147,7 +147,7 @@ describe("Dashboard Técnico — fase 2", () => {
     expect(screen.queryByTestId("total-fila-validacao")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Resumo Exec/ })).toBeDisabled();
     const botoes = within(nav()).getAllByRole("button").filter(b => !/^Dias da Obra/.test(b.textContent || ""));
-    expect(botoes).toHaveLength(11);
+    expect(botoes).toHaveLength(12);
     botoes.forEach(b => { expect(b).toHaveTextContent("—"); expect(b.textContent).not.toMatch(/\b0\b/); });
   });
 });
@@ -404,8 +404,8 @@ describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
     expect(head.slice(15)).toEqual(["ID do RDO", "Descrição de INFRA", ...TECHNICAL_QUANTITIES.map(q => q.label),
       "Retrabalho", "Ofício do retrabalho", "Caminhão basculante (exceto massa)", "Autorização no horário", "Detalhes do atraso na autorização",
       "Sinalização presente", "Nota sinalização (1-5)", "Controle tecnológico presente", "Nota sinalização vertical (1-5)", "Nota controle tecnológico (1-5)", "Seção da obra",
-      "Motivo da liberação fora do horário", "Horário previsto de liberação", "Horário real de liberação"]);
-    expect(head).toHaveLength(31 + TECHNICAL_QUANTITIES.length);
+      "Motivo da liberação fora do horário", "Horário previsto de liberação", "Horário real de liberação", "Atingiu meta contratual", "Motivo de não atingir a meta"]);
+    expect(head).toHaveLength(33 + TECHNICAL_QUANTITIES.length);
     expect(data).toHaveLength(2);
     const byId = Object.fromEntries(data.map(r => [r[15], r]));
     const a = byId["csv-1"];
@@ -440,7 +440,7 @@ describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
 });
 
 describe("Dashboard Técnico — estrutura de uma seção por vez", () => {
-  it("abre na Visão geral, lista as 12 seções com contadores e mostra só a seção selecionada", async () => {
+  it("abre na Visão geral, lista as 13 seções com contadores e mostra só a seção selecionada", async () => {
     state.technical = [
       { ...prod, id: "n1", tipo_servico: "FRESAGEM", fresagem_m2: 10 },
       { ...prod, id: "n2", houve_producao: false, motivo_sem_producao: "Chuva", choveu: true },
@@ -448,7 +448,7 @@ describe("Dashboard Técnico — estrutura de uma seção por vez", () => {
     await mount();
     const botoes = within(nav()).getAllByRole("button");
     expect(botoes.map(b => b.textContent)).toEqual([
-      expect.stringContaining("Dias da Obra"), expect.stringContaining("Produção"), expect.stringContaining("Sem produção"),
+      expect.stringContaining("Dias da Obra"), expect.stringContaining("Produção"), expect.stringContaining("Meta contratual"), expect.stringContaining("Sem produção"),
       expect.stringContaining("Visão geral"), expect.stringContaining("Preenchimento"),
       expect.stringContaining("Validações"), expect.stringContaining("Alertas"), expect.stringContaining("Clima"),
       expect.stringContaining("Usina"), expect.stringContaining("Equipamentos"), expect.stringContaining("Apoio e Qualidade"), expect.stringContaining("Ocorrências"),
@@ -528,12 +528,12 @@ describe("Dashboard Técnico — visão geral compacta e navegação móvel", ()
     await mount();
     const seletor = screen.getByLabelText("Seção do Dashboard") as HTMLSelectElement;
     expect(seletor.tagName).toBe("SELECT");
-    expect(seletor.options).toHaveLength(12);
+    expect(seletor.options).toHaveLength(13);
     expect(seletor.value).toBe("geral");
     fireEvent.change(seletor, { target: { value: "alertas" } });
     expect(screen.getByRole("heading", { name: "Alertas operacionais dos RDOs Técnicos" })).toBeInTheDocument();
     expect(within(nav()).getByRole("button", { name: /^Alertas/ })).toHaveAttribute("aria-current", "page");
-    expect(seletor.options[5].textContent).toMatch(/Alertas \(\d+\)/);
+    expect(seletor.options[6].textContent).toMatch(/Alertas \(\d+\)/);
   });
 });
 
@@ -676,6 +676,25 @@ describe("Dashboard Técnico — Atividades qualitativas", () => {
   });
 });
 
+describe("Dashboard Técnico — Meta contratual", () => {
+  it("mostra % atingido, motivos (Outro com texto digitado) e gera alerta quando não atingiu", async () => {
+    state.technical = [
+      { ...prod, id: "m1", meta_contratual_atingida: true },
+      { ...prod, id: "m2", meta_contratual_atingida: false, meta_contratual_motivo: "Chuva / condições climáticas" },
+      { ...prod, id: "m3", meta_contratual_atingida: false, meta_contratual_motivo: "Outro", meta_contratual_outro: "Greve de caminhoneiros" },
+      { ...prod, id: "m4", meta_contratual_atingida: null },
+    ];
+    await mount();
+    irPara("Meta contratual");
+    expect(screen.getByTestId("meta-kpis")).toHaveTextContent("33%");
+    expect(within(screen.getByTestId("meta-motivos")).getByText("Chuva / condições climáticas")).toBeInTheDocument();
+    expect(within(screen.getByTestId("meta-motivos")).getByText("Outro")).toBeInTheDocument();
+    expect(screen.getAllByText(/Não atingiu: Outro: Greve de caminhoneiros/).length).toBeGreaterThan(0);
+    irPara("Alertas");
+    expect(screen.getAllByRole("cell", { name: "Meta contratual não atingida" })).toHaveLength(2);
+  });
+});
+
 describe("Dashboard Técnico — Apoio e Qualidade", () => {
   const apoio = { ...prod, equipe: "Equipe A", retrabalho: false, qtd_caminhoes_basculante: 5 };
   it("mostra KPIs, gráficos e tabela com retrabalho, caminhões, autorização, sinalização e controle tecnológico", async () => {
@@ -716,7 +735,7 @@ describe("Dashboard Técnico — Apoio e Qualidade", () => {
     const [head, row] = parseCsv((await downloads[0].text()).replace(/^﻿/, ""));
     const n = TECHNICAL_QUANTITIES.length;
     expect(head.slice(17 + n)[0]).toBe("Retrabalho");
-    expect(row.slice(17 + n)).toEqual(["Sim", "55", "5", "Não", "Chuva", "Sim", "4", "Sim", "3", "", "", "", "", ""]);
+    expect(row.slice(17 + n)).toEqual(["Sim", "55", "5", "Não", "Chuva", "Sim", "4", "Sim", "3", "", "", "", "", "", "", ""]);
   });
   it("sem produção por Usina Não Atendeu entra na aba Usina e no indicador", async () => {
     state.technical = [{ ...prod, id: "u1", houve_producao: false, motivo_sem_producao: "Usina Não Atendeu" }];

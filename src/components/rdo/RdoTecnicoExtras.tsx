@@ -1,5 +1,6 @@
 import { Star } from "lucide-react";
 import { MOTIVOS_LIBERACAO, type TechnicalExtrasForm } from "@/lib/rdoTecnicoExtras";
+import { MOTIVOS_META_CONTRATUAL } from "@/lib/rdoTecnicoMetaContratual";
 
 const labelCls = "block text-xs font-semibold text-muted-foreground mb-1";
 const inputCls = "w-full h-11 rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/40";
@@ -154,6 +155,41 @@ export function ApoioObraSection({ form, set }: { form: TechnicalExtrasForm; set
 
       <Estrelas label="Qualidade da sinalização vertical (balizadores e placas) hoje *"
         value={form.sinalizacao_vertical_nota} onChange={n => set("sinalizacao_vertical_nota", n)} />
+    </div>
+  );
+}
+
+/** "Atingiu meta contratual?" — logo após Quantitativos de Produção. Não → motivo (lista) e, se Outro, texto livre. */
+export function MetaContratualSection({ form, set }: {
+  form: { meta_contratual: "" | "sim" | "nao"; meta_contratual_motivo: string; meta_contratual_outro: string };
+  set: Set;
+}) {
+  return (
+    <div className={sectionCls}>
+      <h2 className="text-sm font-bold text-foreground">Meta Contratual</h2>
+      <SimNao label="Atingiu meta contratual? *" value={form.meta_contratual}
+        onChange={v => { set("meta_contratual", v); if (v === "sim") { set("meta_contratual_motivo", ""); set("meta_contratual_outro", ""); } }} />
+      {form.meta_contratual === "nao" && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+          <label className={labelCls}>Qual o motivo de não ter atingido a meta? *</label>
+          <div className="space-y-1.5" role="radiogroup" aria-label="Motivo de não atingir a meta contratual">
+            {MOTIVOS_META_CONTRATUAL.map(m => (
+              <label key={m} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer ${form.meta_contratual_motivo === m ? "border-primary bg-white font-semibold" : "border-border bg-background"}`}>
+                <input type="radio" name="meta_contratual_motivo" checked={form.meta_contratual_motivo === m}
+                  onChange={() => { set("meta_contratual_motivo", m); if (m !== "Outro") set("meta_contratual_outro", ""); }} />
+                {m}
+              </label>
+            ))}
+          </div>
+          {form.meta_contratual_motivo === "Outro" && (
+            <div>
+              <label className={labelCls}>Qual foi o outro motivo? *</label>
+              <textarea value={form.meta_contratual_outro} onChange={e => set("meta_contratual_outro", e.target.value)} rows={2}
+                placeholder="Descreva o motivo" className={areaCls} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

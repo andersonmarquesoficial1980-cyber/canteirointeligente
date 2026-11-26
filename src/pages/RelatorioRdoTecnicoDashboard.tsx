@@ -47,6 +47,7 @@ import { toSaoPauloISODate } from "@/lib/date-local";
 import { classifyUnlinkedValidationRdos } from "@/lib/validationUnlinked";
 import { MOTIVO_EXPLICACAO, climaSplit, equipesVisiveisFiltro, motivoLabel, perdasPorMotivo, producaoPorServico, resumoPorOgs, secaoDaObra, situacaoClima, situacaoUsina, somaCampo } from "@/lib/rdoTecnicoDashboardMetrics";
 import { NOTA_BAIXA, computeApoioMetrics } from "@/lib/rdoTecnicoApoioMetrics";
+import { computeMetaContratual, motivoMetaLabel } from "@/lib/rdoTecnicoMetaContratual";
 import { ENSAIOS_SERVICE, INFRA_SERVICE, TECHNICAL_QUANTITIES, hasServiceToken } from "@/lib/technicalProduction";
 import { Interpretar, Previa, TabelaPaginada, type Coluna } from "./rdoTecnicoDashboard/Tabela";
 import { DiasObraPainel } from "./rdoTecnicoDashboard/DiasObraPainel";
@@ -109,6 +110,9 @@ interface RdoTecnicoRow {
   controle_tecnologico_nota: number | null;
   massa_fria_sacos: number | null;
   perc_conclusao_via: number | null;
+  meta_contratual_atingida?: boolean | null;
+  meta_contratual_motivo?: string | null;
+  meta_contratual_outro?: string | null;
 }
 
 interface EngenheiroIdentificado {
@@ -168,6 +172,7 @@ type AssuntoTab =
   | "usina"
   | "equipamentos"
   | "apoio"
+  | "meta"
   | "ocorrencias"
   | "sem_producao";
 
@@ -177,6 +182,7 @@ const SECOES_META: { id: Secao; label: string; icon: any }[] = [
   { id: "dias_obra", label: "Dias da Obra", icon: CalendarDays },
   { id: "geral", label: "Visão geral", icon: BarChart3 },
   { id: "producao", label: "Produção", icon: Activity },
+  { id: "meta", label: "Meta contratual", icon: Gauge },
   { id: "preenchimento", label: "Preenchimento", icon: ClipboardCheck },
   { id: "validacoes", label: "Validações", icon: ShieldCheck },
   { id: "alertas", label: "Alertas", icon: Bell },
@@ -194,7 +200,7 @@ export type ModoDashboardRdo = "obra" | "controle" | "completo";
 const SECOES_CONTROLE: Secao[] = ["preenchimento", "validacoes"];
 
 /** Seções sempre à vista; as demais ficam em "Mais análises". */
-const SECOES_PRINCIPAIS: Secao[] = ["dias_obra", "producao", "sem_producao"];
+const SECOES_PRINCIPAIS: Secao[] = ["dias_obra", "producao", "meta", "sem_producao"];
 
 const TITULO_ASSUNTO: Record<string, string> = {
   producao: "Produção",
@@ -202,6 +208,7 @@ const TITULO_ASSUNTO: Record<string, string> = {
   usina: "Usina",
   equipamentos: "Equipamentos",
   apoio: "Apoio e Qualidade na Obra",
+  meta: "Meta contratual",
   ocorrencias: "Ocorrências",
   sem_producao: "Sem produção",
 };
@@ -212,6 +219,7 @@ const RESUMO_ASSUNTO: Record<string, string> = {
   usina: "RDOs com informação de usina",
   equipamentos: "RDOs com avaliação de conformidade",
   apoio: "RDOs com retrabalho, caminhões ou avaliação de apoio",
+  meta: "RDOs com produção que informaram a meta contratual",
   ocorrencias: "RDOs com ocorrência reportada",
   sem_producao: "RDOs sem produção no período",
 };
@@ -334,6 +342,8 @@ function camposDetalhe(r: RdoTecnicoRow, assunto: AssuntoTab, engMap: Record<str
       { label: "Qualidade do controle tecnológico", value: estrelas(r.controle_tecnologico_nota) },
       { label: "Sinalização vertical", value: estrelas(r.sinalizacao_vertical_nota) },
     );
+  } else if (assunto === "meta") {
+    campos.push({ label: "Atingiu meta contratual", value: simNao(r.meta_contratual_atingida) }, { label: "Motivo de não atingir", value: r.meta_contratual_atingida === false ? motivoMetaLabel(r) : "-" });
   } else if (assunto === "ocorrencias") {
     campos.push({ label: "Houve ocorrência", value: simNao(r.houve_ocorrencia) }, { label: "Descrição da ocorrência", value: r.descricao_ocorrencia || "Sem descrição" });
   } else if (assunto === "sem_producao") {
@@ -350,6 +360,8 @@ function detalheAssunto(tab: AssuntoTab, r: RdoTecnicoRow) {
       ? (r.houve_producao ? `Chuva ${r.intensidade_chuva || "não informada"}` : "Chuva parou a produção")
       : tab === "usina"
         ? `${r.usina_programada || "Sem usina"} • ${r.usina_atendeu === false ? `Não atendeu (${r.usina_nao_atendeu_motivo || "sem motivo"})` : r.usina_atendeu === true ? "Atendeu" : "Sem avaliação"}`
+        : tab === "meta"
+          ? (r.meta_contratual_atingida == null ? "Sem resposta" : r.meta_contratual_atingida ? "Atingiu a meta" : `Não atingiu: ${motivoMetaLabel(r)}`)
         : tab === "apoio"
           ? [r.retrabalho ? `Retrabalho (${r.retrabalho_oficio || "s/ obs"})` : null,
               r.qtd_caminhoes_basculante != null ? `${r.qtd_caminhoes_basculante} basculante(s)` : null,
@@ -447,7 +459,7 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
           retrabalho, retrabalho_oficio, qtd_caminhoes_basculante, autorizacao_no_horario, autorizacao_atraso_detalhe, autorizacao_motivo, autorizacao_horario_previsto, autorizacao_horario_real,
           sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, controle_tecnologico_nota, sinalizacao_vertical_nota, sinalizacao_ausente_motivo, controle_tecnologico_ausente_motivo, massa_fria_sacos,
           geogrelha_m2, bgtc_m3, macadame_m3,
-          perc_conclusao_via
+          perc_conclusao_via, meta_contratual_atingida, meta_contratual_motivo, meta_contratual_outro
         `)
           .eq("company_id", companyId)
           .gte("data", dataIni)
@@ -470,7 +482,7 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
           retrabalho, retrabalho_oficio, qtd_caminhoes_basculante, autorizacao_no_horario, autorizacao_atraso_detalhe, autorizacao_motivo, autorizacao_horario_previsto, autorizacao_horario_real,
           sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, controle_tecnologico_nota, sinalizacao_vertical_nota, sinalizacao_ausente_motivo, controle_tecnologico_ausente_motivo, massa_fria_sacos,
           geogrelha_m2, bgtc_m3, macadame_m3,
-          perc_conclusao_via
+          perc_conclusao_via, meta_contratual_atingida, meta_contratual_motivo, meta_contratual_outro
         `)
           .eq("company_id", companyId)
           .gte("data", periodoAnterior.anteriorIni)
@@ -808,6 +820,7 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
       usina: linhasFiltradas.filter(r => r.usina_programada || r.usina_atendeu === false || usinaNaoAtendeuSemProducao(r)),
       equipamentos: linhasFiltradas.filter(r => r.equipamentos_conforme !== null),
       apoio: linhasFiltradas.filter(temApoio),
+      meta: linhasFiltradas.filter(r => r.houve_producao && r.meta_contratual_atingida != null),
       ocorrencias: linhasFiltradas.filter(r => r.houve_ocorrencia),
       sem_producao: linhasFiltradas.filter(r => !r.houve_producao),
     };
@@ -819,6 +832,7 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
   const resumoOgs = useMemo(() => resumoPorOgs(linhasFiltradas), [linhasFiltradas]);
   const clima = useMemo(() => climaSplit(linhasFiltradas), [linhasFiltradas]);
   const apoioMetrics = useMemo(() => computeApoioMetrics(linhasFiltradas), [linhasFiltradas]);
+  const metaMetrics = useMemo(() => computeMetaContratual(linhasFiltradas), [linhasFiltradas]);
 
   const atividadesQualitativas = useMemo(() => {
     const produtivas = linhasFiltradas.filter(r => r.houve_producao);
@@ -883,6 +897,9 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
         if (r.sinalizacao_vertical_nota && r.sinalizacao_vertical_nota <= NOTA_BAIXA) apoio("vertical", "Sinalização vertical com nota baixa", `Nota ${r.sinalizacao_vertical_nota}/5`);
         if (r.controle_tecnologico_nota && r.controle_tecnologico_nota <= NOTA_BAIXA) apoio("ct-nota", "Controle tecnológico com nota baixa", `Nota ${r.controle_tecnologico_nota}/5`);
         if (r.retrabalho) apoio("retrabalho", "Retrabalho", r.retrabalho_oficio || "Sem observação");
+        if (r.meta_contratual_atingida === false) itens.push({
+          id: `${r.id}-meta`, prioridade: "Média", prioridadePeso: 2, assunto: "Meta contratual não atingida", detalhe: motivoMetaLabel(r), tabDestino: "meta", rdo: r,
+        } as any);
       }
 
       if (r.houve_ocorrencia) {
@@ -948,6 +965,8 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
       "Motivo da liberação fora do horário",
       "Horário previsto de liberação",
       "Horário real de liberação",
+      "Atingiu meta contratual",
+      "Motivo de não atingir a meta",
     ];
 
     const linhas = linhasFiltradas.map((r) => [
@@ -986,6 +1005,8 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
       r.autorizacao_motivo || "",
       (r.autorizacao_horario_previsto || "").slice(0, 5),
       (r.autorizacao_horario_real || "").slice(0, 5),
+      r.houve_producao ? (r.meta_contratual_atingida == null ? "" : r.meta_contratual_atingida ? "Sim" : "Não") : "",
+      r.meta_contratual_atingida === false ? motivoMetaLabel(r) : "",
     ]);
 
     const csv = "﻿" + [head, ...linhas].map((l) => l.map(csvEscape).join(";")).join("\n");
@@ -1073,6 +1094,7 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
     usina: pronto ? String(cardsAssunto.usina.length) : "—",
     equipamentos: pronto ? String(cardsAssunto.equipamentos.length) : "—",
     apoio: pronto ? String(cardsAssunto.apoio.length) : "—",
+    meta: pronto ? String(cardsAssunto.meta.length) : "—",
     ocorrencias: pronto ? String(cardsAssunto.ocorrencias.length) : "—",
     sem_producao: pronto ? String(cardsAssunto.sem_producao.length) : "—",
   };
@@ -1491,6 +1513,53 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
     );
   };
 
+  const renderMeta = () => {
+    const m = metaMetrics;
+    const lista = cardsAssunto.meta;
+    const pct = (v: number | null) => (v == null ? "—" : `${fmtNum(v, 0)}%`);
+    return (
+      <SecaoShell titulo={TITULO_ASSUNTO.meta} subtitulo={`${lista.length} registro(s) · ${RESUMO_ASSUNTO.meta}`}>
+        <div data-testid="meta-kpis" className="shrink-0 grid grid-cols-2 gap-2 md:grid-cols-4">
+          <KpiCard icon={Gauge} titulo="Atingiu a meta" valor={pct(m.pct)} cor="text-emerald-600" subtitulo={`${m.sim} de ${m.respondidos} RDOs respondidos`} />
+          <KpiCard icon={ClipboardCheck} titulo="RDOs que atingiram" valor={fmtNum(m.sim)} cor="text-emerald-600" subtitulo="meta contratual = Sim" />
+          <KpiCard icon={AlertTriangle} titulo="RDOs que não atingiram" valor={fmtNum(m.nao)} cor="text-red-600" subtitulo="meta contratual = Não" />
+          <KpiCard icon={FileText} titulo="Sem resposta" valor={fmtNum(m.semResposta)} cor="text-slate-600" subtitulo={`de ${m.comProducao} RDOs com produção`} />
+        </div>
+        <div className="shrink-0 grid grid-cols-1 gap-2 md:grid-cols-2">
+          <div data-testid="meta-motivos" className="min-w-0 rounded-xl border bg-white p-2">
+            <h3 className="text-xs font-bold text-muted-foreground">Por que não atingiu a meta</h3>
+            {m.motivos.length === 0 ? <p className="py-2 text-xs text-muted-foreground">Nenhum RDO com meta não atingida nos filtros atuais.</p> : (
+              <table className="w-full text-sm">
+                <tbody>
+                  {m.motivos.map(o => (
+                    <tr key={o.name} className="border-t"><td className="py-0.5 pr-2">{o.name}</td><td className="text-right font-bold">{o.value}</td><td className="w-12 text-right text-xs text-muted-foreground">{fmtNum((o.value / m.nao) * 100, 0)}%</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          <div data-testid="meta-por-ogs" className="min-w-0 rounded-xl border bg-white p-2">
+            <h3 className="text-xs font-bold text-muted-foreground">Meta por OGS (menor % primeiro)</h3>
+            <div className="max-h-[220px] overflow-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="text-left text-xs text-muted-foreground"><th className="py-0.5 pr-2">OGS</th><th className="pr-2">Atingiu</th><th className="pr-2">Não atingiu</th><th>%</th></tr></thead>
+                <tbody>
+                  {m.porOgs.length === 0 ? <tr><td colSpan={4} className="py-1 text-xs text-muted-foreground">Sem respostas nos filtros atuais.</td></tr>
+                    : m.porOgs.map(o => (<tr key={o.ogs} className="border-t"><td className="py-0.5 pr-2 font-semibold">{o.ogs}</td><td className="pr-2">{o.sim}</td><td className="pr-2">{o.nao}</td><td>{fmtNum(o.pct, 0)}%</td></tr>))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <Interpretar>
+          <p>Considera somente RDOs com produção. O percentual usa apenas os RDOs que responderam "Atingiu meta contratual?" (rascunhos incluídos). Quando a resposta é Não, o engenheiro escolhe o motivo; em "Outro" o texto digitado aparece na lista e no detalhe do RDO.</p>
+        </Interpretar>
+        <TabelaPaginada className="lg:flex-1" itens={lista} colunas={colunasAssunto("meta")} getKey={r => r.id}
+          resetKey={`meta|${chaveTecnica}`} focusKey={foco} vazio="Nenhum RDO com meta contratual informada nos filtros atuais." rotulo="registros" minWidth={860} />
+      </SecaoShell>
+    );
+  };
+
   const renderPreenchimento = () => (
     <SecaoShell titulo="Preenchimento de RDO Técnico pelos engenheiros"
       subtitulo={<>{fmtDate(dataIni)} a {fmtDate(dataFim)} · {lancamentosEngenheiros.reduce((s, p) => s + p.enviados, 0)} enviados · {lancamentosEngenheiros.reduce((s, p) => s + p.rascunhos, 0)} rascunhos</>}>
@@ -1587,6 +1656,7 @@ export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?:
     if (secao === "validacoes") return renderValidacoes();
     if (secao === "alertas") return renderAlertas();
     if (secao === "apoio") return renderApoio();
+    if (secao === "meta") return renderMeta();
     return renderAssunto(secao);
   };
 
