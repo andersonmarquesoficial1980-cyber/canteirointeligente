@@ -16,6 +16,8 @@ const IGNORAR = [
   /Non-Error promise rejection captured/i,
   /Failed to fetch dynamically imported module/i, // deploy novo: o ErrorBoundary já recarrega
   /Importing a module script failed/i,
+  /is not a valid JavaScript MIME type/i,
+  /error loading dynamically imported module/i,
   /Load failed/i, // Safari sem rede
   /NetworkError when attempting to fetch resource/i,
   /AbortError/i,

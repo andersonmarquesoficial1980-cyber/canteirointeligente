@@ -3,6 +3,28 @@ import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportError } from "@/lib/monitoring";
 
+export function isStaleChunkError(error: any): boolean {
+  const msg = String(error?.message || error || "");
+  return (
+    /Failed to fetch dynamically imported module/i.test(msg) ||
+    /error loading dynamically imported module/i.test(msg) ||
+    /Importing a module script failed/i.test(msg) ||
+    /is not a valid JavaScript MIME type/i.test(msg) ||
+    /Unable to preload CSS/i.test(msg) ||
+    error?.name === "ChunkLoadError"
+  );
+}
+
+/** Recarrega para pegar o index.html novo. No máximo 1x a cada 60s (evita loop se o erro for outro). */
+export function reloadOnceForStaleChunk() {
+  const key = "_chunk_reload_at";
+  const last = Number(sessionStorage.getItem(key) || 0);
+  if (Date.now() - last > 60_000) {
+    sessionStorage.setItem(key, String(Date.now()));
+    window.location.reload();
+  }
+}
+
 interface Props {
   children: React.ReactNode;
   fallbackMessage?: string;
@@ -25,20 +47,14 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("ErrorBoundary caught:", error, info);
-    // Se for erro de chunk (SW desatualizado), recarrega automaticamente 1x
-    const isChunkError =
-      error?.message?.includes("Failed to fetch dynamically imported module") ||
-      error?.message?.includes("Importing a module script failed") ||
-      error?.name === "ChunkLoadError";
+    // Deploy novo apaga os arquivos antigos: o servidor devolve index.html no lugar do .js.
+    // Chrome/Edge: "Failed to fetch dynamically imported module"; Safari: "'text/html' is not a valid
+    // JavaScript MIME type" / "Importing a module script failed"; Firefox: "error loading dynamically imported module".
+    const isChunkError = isStaleChunkError(error);
     if (!isChunkError) {
       reportError(error, { origem: "ErrorBoundary", mensagem_tela: this.props.fallbackMessage || "" });
-    }
-    if (isChunkError) {
-      const reloadedKey = "_sw_chunk_reload";
-      if (!sessionStorage.getItem(reloadedKey)) {
-        sessionStorage.setItem(reloadedKey, "1");
-        window.location.reload();
-      }
+    } else {
+      reloadOnceForStaleChunk();
     }
   }
 
