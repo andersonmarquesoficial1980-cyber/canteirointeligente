@@ -800,6 +800,7 @@ export default function RelatorioControleLancamentos() {
       if (!session?.user) throw new Error("Sessão expirada. Entre novamente.");
       const sug = { ...createTarget.sug, ogs: createTarget.ogs.trim() || null, local: createTarget.local.trim() || null };
       const ogsSel = opcoesCriacao?.ogs.find(x => x.numero === sug.ogs);
+      if (sug.ogs === "000") { sug.ogs = null; sug.local = sug.local || "BASE / PÁTIO CENTRAL"; } // mesma regra do formulário: OGS 000 = pátio
       if (sug.ogs && opcoesCriacao && !ogsSel) { toast.error("OGS não encontrada no cadastro. Escolha uma da lista ou deixe em branco."); setCreating(false); return; }
       const operador = createTarget.operador.trim();
       if (operador && opcoesCriacao && !opcoesCriacao.operadores.includes(operador)) { toast.error("Operador não encontrado entre os funcionários ativos. Escolha um da lista ou deixe em branco."); setCreating(false); return; }
@@ -1187,7 +1188,7 @@ export default function RelatorioControleLancamentos() {
                       onChange={e => {
                         const v = e.target.value;
                         const hit = opcoesCriacao?.ogs.find(x => x.numero === v);
-                        setCreateTarget({ ...createTarget, ogs: v, local: hit?.local || createTarget.local });
+                        setCreateTarget({ ...createTarget, ogs: v, local: hit ? (hit.numero === "000" ? "BASE / PÁTIO CENTRAL" : hit.local) : createTarget.local });
                       }} className="mt-1 h-9 text-sm" />
                     <datalist id="cl-ogs">{(opcoesCriacao?.ogs || []).map(o => <option key={o.numero} value={o.numero}>{o.cliente}</option>)}</datalist>
                   </label>
