@@ -15,7 +15,7 @@ import { findMeterGaps, eligibleFleetCoverage, type MeterDiary, type MeterGap } 
 import { retroactiveInfo } from "@/lib/diaryDeadlineAlerts";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
-  buildRdoSuggestions, buildDiaryFromRdoPayload, describeSuggestion, previousMeter, normFleet,
+  buildRdoSuggestions, buildDiaryFromRdoPayload, fallbackSuggestion, describeSuggestion, previousMeter, normFleet,
   type RdoSuggestion, type WorkStatusSuggestion,
 } from "@/lib/rdoDiarySuggestions";
 import { toast } from "sonner";
@@ -219,7 +219,15 @@ function Detalhe({ item, diasLabel, onCell, onCopy, onNavigate, compact, rdoByDa
                         <div key={d} className="flex flex-wrap items-start gap-2 bg-white/70 border border-red-100 rounded-md px-2 py-1.5">
                           <span className="px-2 py-0.5 rounded-full bg-white border border-red-200 text-red-700 text-xs font-medium whitespace-nowrap">{fmtShort(d)}</span>
                           {sugs.length === 0 ? (
-                            <span className="text-xs text-slate-500 py-0.5">{rdoError ? "—" : "Sem RDO com este equipamento — localização desconhecida"}</span>
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              <span className="text-slate-500">{rdoError ? "RDO indisponível" : "Sem RDO com este equipamento — localização desconhecida"}</span>
+                              {canCreate && (
+                                <Button size="sm" variant="outline" className="no-print h-6 px-2 text-[11px] bg-white"
+                                  onClick={() => onCreate(fallbackSuggestion(item.key, d, null), item)}>
+                                  Criar diário
+                                </Button>
+                              )}
+                            </div>
                           ) : (
                             <div className="flex-1 min-w-[240px] space-y-1">
                               {sugs.map(sg => (
@@ -455,7 +463,7 @@ export default function RelatorioControleLancamentos() {
       const baselineRaw: MeterDiary[] = [];
       for (let offset = 0; ; offset += 1000) {
         const page = await (supabase as any).from("equipment_diaries")
-          .select("id,equipment_fleet,date,period,created_at,status,is_auto,equipment_type,meter_initial,meter_final,odometer_initial,odometer_final")
+          .select("id,equipment_fleet,date,period,created_at,status,is_auto,equipment_type,ogs_number,location_address,meter_initial,meter_final,odometer_initial,odometer_final")
           .eq("company_id", companyId).eq("status", "enviado")
           .or("is_auto.is.null,is_auto.eq.false")
           .gte("date", baselineStart.toISOString().slice(0, 10)).lt("date", dataIni)
@@ -736,12 +744,19 @@ export default function RelatorioControleLancamentos() {
   const abrirModal = (titulo: string, rows: DiarioRow[]) => setModal({ titulo, rows });
 
   // Criar diário a partir do RDO — pré-preenche com o RDO e o último medidor conhecido; admin confere e confirma.
-  const abrirCriacao = (sug: RdoSuggestion, item: ListItem) => {
+  const abrirCriacao = (sugIn: RdoSuggestion, item: ListItem) => {
+    let sug = sugIn;
     const fleetRows = [
       ...diarios.filter(r => r.equipment_fleet === item.key && r.status === "enviado" && !r.is_auto),
       ...meterBaselines.filter(b => b.equipment_fleet === item.key),
     ] as any[];
-    const period = sug.period || "diurno";
+    let period: "diurno" | "noturno" = sug.period || "diurno";
+    if (sug.noRdo) {
+      const last = [...fleetRows].filter(r => r.date < sug.date && (r.ogs_number || r.location_address))
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.created_at || "").localeCompare(String(b.created_at || ""))).pop();
+      sug = fallbackSuggestion(item.key, sug.date, last ? { ogs: last.ogs_number || null, local: last.location_address || null } : null);
+      if (last?.period === "diurno" || last?.period === "noturno") period = last.period;
+    }
     const prev = previousMeter(fleetRows, sug.date, period);
     const tipoBase = (prev.equipmentType || item.tipo || "").trim();
     const kind = prev.value != null ? prev.kind
@@ -1144,6 +1159,7 @@ export default function RelatorioControleLancamentos() {
               </div>
               <div className="p-5 space-y-3 text-sm">
                 <p className="text-xs text-slate-600 bg-slate-50 border rounded-md p-2">📋 {describeSuggestion(createTarget.sug)}</p>
+                {createTarget.sug.noRdo && <p className="text-xs text-amber-700">⚠️ Nenhum RDO apontou este equipamento. Local, turno e status abaixo são só um ponto de partida (último local conhecido, status Disposição): confira antes de criar.</p>}
                 <div className="grid grid-cols-2 gap-3">
                   <label className="text-xs font-semibold text-gray-500">STATUS
                     <select value={createTarget.status} onChange={e => setCreateTarget({ ...createTarget, status: e.target.value as any })}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildDiaryFromRdoPayload, buildRdoSuggestions, climaToWorkStatus, describeSuggestion, isUsableRdo, previousMeter,
+  buildDiaryFromRdoPayload, buildRdoSuggestions, fallbackSuggestion, climaToWorkStatus, describeSuggestion, isUsableRdo, previousMeter,
   type RdoHeader,
 } from "./rdoDiarySuggestions";
 
@@ -48,6 +48,17 @@ describe("rdoDiarySuggestions", () => {
     expect(previousMeter(rows, "2026-10-01", "noturno").value).toBeNull();
     const km = previousMeter([{ date: "2026-11-01", period: "diurno", meter_final: null, odometer_final: 120 }], "2026-11-02", "diurno");
     expect(km).toMatchObject({ kind: "odometer", value: 120 });
+  });
+
+  it("dia sem RDO: sugestão parte do último local e payload registra que não houve RDO", () => {
+    const s = fallbackSuggestion("bc66", "2026-11-02", { ogs: "2539", local: "RODOVIA SP-280" });
+    expect(describeSuggestion(s)).toBe("sem RDO · último local conhecido: OGS 2539 · RODOVIA SP-280");
+    const p = buildDiaryFromRdoPayload({
+      suggestion: s, workStatus: "Disposição", period: "noturno", equipmentType: "Bobcat", meterKind: "hourmeter",
+      meterInitial: 5682, meterFinal: 5682, companyId: "c", userId: "u", creatorName: "Anderson", createdOn: "26/11/2026",
+    });
+    expect(p).toMatchObject({ equipment_fleet: "BC66", ogs_number: "2539", work_status: "Disposição", status: "enviado" });
+    expect(p.observations).toContain("Gerado sem RDO (conferido pelo gestor) por Anderson");
   });
 
   it("monta payload enviado, manual, com origem rastreável no observations", () => {

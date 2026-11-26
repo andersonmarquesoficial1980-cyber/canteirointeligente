@@ -29,6 +29,8 @@ export interface RdoSuggestion {
   encarregado: string | null;
   clima: string | null;
   workStatus: WorkStatusSuggestion | null;
+  /** true = nenhum RDO apontou a frota; OGS/local vêm do último diário conhecido (só como ponto de partida). */
+  noRdo?: boolean;
 }
 
 export type WorkStatusSuggestion = "Trabalhando" | "Folga" | "Cancelou";
@@ -100,8 +102,22 @@ export function buildRdoSuggestions(
   return result;
 }
 
+/** Sugestão para dia sem RDO: parte do último local conhecido e assume "Disposição" até o admin conferir. */
+export function fallbackSuggestion(
+  fleet: string, date: string, last: { ogs: string | null; local: string | null } | null,
+): RdoSuggestion {
+  return {
+    rdoId: "", date, fleet: normFleet(fleet), period: null, ogs: last?.ogs ?? null, local: last?.local ?? null,
+    apontador: null, encarregado: null, clima: null, workStatus: null, noRdo: true,
+  };
+}
+
 /** "Turno noturno · OGS 2539 · RODOVIA SP-280 · William Silva (Trabalhou)" */
 export function describeSuggestion(s: RdoSuggestion): string {
+  if (s.noRdo) {
+    const last = [s.ogs ? `OGS ${s.ogs}` : null, s.local].filter(Boolean).join(" · ");
+    return `sem RDO${last ? ` · último local conhecido: ${last}` : ""}`;
+  }
   return [
     s.period ? `turno ${s.period}` : null,
     s.ogs ? `OGS ${s.ogs}` : null,
@@ -161,7 +177,7 @@ export interface CreateFromRdoInput {
 
 export function buildDiaryFromRdoPayload(i: CreateFromRdoInput) {
   const { suggestion: s } = i;
-  const tag = `[Gerado a partir do RDO${s.apontador ? ` de ${s.apontador}` : ""} por ${i.creatorName} em ${i.createdOn}${
+  const tag = `[Gerado ${s.noRdo ? "sem RDO (conferido pelo gestor)" : `a partir do RDO${s.apontador ? ` de ${s.apontador}` : ""}`} por ${i.creatorName} em ${i.createdOn}${
     i.meterInitial == null ? " — medidor não informado" : ""}]`;
   const observations = i.workStatus === "Cancelou" ? `[CANCELOU: conforme RDO]\n${tag}` : tag;
   const meters = i.meterKind === "odometer"
