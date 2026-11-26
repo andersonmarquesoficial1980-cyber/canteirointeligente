@@ -39,6 +39,8 @@ export default function UsersManager() {
   const [editEmail, setEditEmail] = useState("");
   const [editPerfil, setEditPerfil] = useState("");
   const [editPassword, setEditPassword] = useState("");
+  const [editEmployeeId, setEditEmployeeId] = useState("none");
+  const [employees, setEmployees] = useState<{ id: string; name: string; status: string | null }[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deactivating, setDeactivating] = useState<any | null>(null);
   const [deactivatingLoading, setDeactivatingLoading] = useState(false);
@@ -179,6 +181,10 @@ export default function UsersManager() {
     setEditEmail(u.email || "");
     setEditPerfil(u.perfil || "Apontador");
     setEditPassword("");
+    setEditEmployeeId(u.employee_id || "none");
+    if (employees.length === 0) {
+      (supabase as any).from("employees").select("id, name, status").order("name").then(({ data }: any) => setEmployees(data || []));
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -189,6 +195,9 @@ export default function UsersManager() {
       const profileUpdate: any = {};
       if (editNome.trim()) profileUpdate.nome_completo = editNome.trim();
       if (editPerfil) profileUpdate.perfil = editPerfil;
+      // Vínculo usuário → funcionário (define em quais equipamentos o usuário faz checklist)
+      const newEmp = editEmployeeId === "none" ? null : editEmployeeId;
+      if (newEmp !== (editing.employee_id || null)) profileUpdate.employee_id = newEmp;
 
       if (Object.keys(profileUpdate).length > 0) {
         const { error: profileError } = await supabase
@@ -423,6 +432,19 @@ export default function UsersManager() {
                   <SelectItem value="Usuário">Usuário</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Funcionário vinculado (habilitações / checklist)</Label>
+              <Select value={editEmployeeId} onValueChange={setEditEmployeeId}>
+                <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem vínculo</SelectItem>
+                  {employees
+                    .filter(e => e.id === editing?.employee_id || !users.some(u => u.employee_id === e.id))
+                    .map(e => <SelectItem key={e.id} value={e.id}>{e.name}{e.status && e.status !== "ativo" ? ` (${e.status})` : ""}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">Mostra só funcionários ainda sem usuário. O WF Checklist libera os equipamentos conforme as habilitações do funcionário.</p>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Nova Senha (deixe em branco para manter)</Label>
