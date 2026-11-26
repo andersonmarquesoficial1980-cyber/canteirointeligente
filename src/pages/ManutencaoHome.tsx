@@ -1,3 +1,4 @@
+import { ChecklistGestaoBanner } from "@/components/ChecklistGestaoBanner";
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -168,6 +169,7 @@ export default function ManutencaoHome() {
       </header>
 
       <div className={`mx-auto space-y-3 ${isDesktop ? "max-w-[1680px] px-8 py-8" : "max-w-2xl px-4 py-4"}`}>
+        <ChecklistGestaoBanner destino={`/manutencao/ocorrencias${origemQuery}`} mostrarSemChecklist={false} />
         <ProgramacoesDoDia />
         {isDesktop && loadingProgramacoes && <p role="status" className="text-sm text-muted-foreground">Consultando programações…</p>}
 

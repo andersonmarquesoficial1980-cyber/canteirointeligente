@@ -1,3 +1,4 @@
+import { ChecklistGestaoBanner } from "@/components/ChecklistGestaoBanner";
 import { useState, useEffect, useMemo } from "react";
 import { loadEquipesOcultas, equipeVisivel } from "@/lib/equipesOcultas";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -920,6 +921,8 @@ export default function GestaoFrotasHome() {
       </div>
         </>
       )}
+
+      <div className="px-4 pt-3"><ChecklistGestaoBanner /></div>
 
       {/* Abas */}
       <div className="flex border-b border-border bg-white">

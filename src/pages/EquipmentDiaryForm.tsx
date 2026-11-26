@@ -3346,37 +3346,23 @@ export default function EquipmentDiaryForm() {
           </>
         )}
 
-        {/* CHECKLIST PRÉ-OPERAÇÃO */}
+        {/* CHECKLIST PRÉ-OPERAÇÃO — agora é feito no WF Checklist, antes de operar. Aqui só o status (nunca bloqueia o diário). */}
         {!isPatioMode && hasChecklist && (
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="checklist" className="border border-border rounded-lg overflow-hidden bg-secondary/30">
-              <AccordionTrigger className="px-4 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
-                <span className="text-sm font-bold text-foreground uppercase tracking-wide">
-                  ✔️ CHECKLIST PRÉ-OPERAÇÃO
-                </span>
-                {checklistSubmittedAt ? (
-                  <span className="ml-2 text-[10px] font-bold rounded-full bg-emerald-500/15 text-emerald-600 px-2 py-0.5 normal-case">
-                    feito {new Date(checklistSubmittedAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                ) : (
-                  <span className="ml-2 text-[10px] font-bold rounded-full bg-amber-500/15 text-amber-600 px-2 py-0.5 normal-case">pendente — use WF Checklist antes de operar</span>
-                )}
-              </AccordionTrigger>
-              <AccordionContent className="px-4 pb-4">
-                <ChecklistSection
-                  equipmentType={isRetro ? "Linha Amarela" : equipmentType}
-                  results={checklistResults}
-                  onChange={setChecklistResults}
-                  diaryId={editId || savedDiaryId || null}
-                  checklistSubmittedAt={checklistSubmittedAt}
-                  onSubmitted={(at) => setChecklistSubmittedAt(at)}
-                  showEnviarButton={true}
-                  onEnviarChecklist={handleEnviarChecklistDoDiario}
-                  enviando={enviandoChecklist}
-                />
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+          <div className="rounded-lg border border-border bg-secondary/30 px-4 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-foreground uppercase tracking-wide">✔️ Checklist pré-operação</p>
+              {checklistSubmittedAt ? (
+                <p className="text-xs text-emerald-600 font-semibold">
+                  Feito em {new Date(checklistSubmittedAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              ) : (
+                <p className="text-xs text-amber-600 font-semibold">Pendente — faça no WF Checklist antes de operar</p>
+              )}
+            </div>
+            {!checklistSubmittedAt && (
+              <Button type="button" size="sm" variant="outline" onClick={() => window.open("/checklist", "_blank")}>Abrir WF Checklist</Button>
+            )}
+          </div>
         )}
 
         {/* PERÍODO — oculto no modo pátio */}
