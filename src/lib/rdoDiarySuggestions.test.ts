@@ -59,6 +59,13 @@ describe("rdoDiarySuggestions", () => {
     });
     expect(p).toMatchObject({ equipment_fleet: "BC66", ogs_number: "2539", work_status: "Disposição", status: "enviado" });
     expect(p.observations).toContain("Gerado sem RDO (conferido pelo gestor) por Anderson");
+    expect(p.operator_name).toBeNull();
+    const p2 = buildDiaryFromRdoPayload({
+      suggestion: { ...s, ogs: "2540", local: "SP-270" }, workStatus: "Trabalhando", period: "noturno", equipmentType: "Bobcat",
+      meterKind: "hourmeter", meterInitial: 1, meterFinal: 2, companyId: "c", userId: "u", creatorName: "A", createdOn: "x",
+      operatorName: "TIAGO DE SOUSA", clientName: "MOTIVA",
+    });
+    expect(p2).toMatchObject({ ogs_number: "2540", location_address: "SP-270", operator_name: "TIAGO DE SOUSA", client_name: "MOTIVA" });
   });
 
   it("monta payload enviado, manual, com origem rastreável no observations", () => {

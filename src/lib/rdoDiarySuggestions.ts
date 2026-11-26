@@ -173,6 +173,8 @@ export interface CreateFromRdoInput {
   userId: string;
   creatorName: string;
   createdOn: string; // dd/mm/aaaa
+  operatorName?: string | null; // opcional: operador informado pelo gestor
+  clientName?: string | null;
 }
 
 export function buildDiaryFromRdoPayload(i: CreateFromRdoInput) {
@@ -192,6 +194,8 @@ export function buildDiaryFromRdoPayload(i: CreateFromRdoInput) {
     ogs_number: s.ogs,
     location_address: s.local,
     observations,
+    operator_name: i.operatorName || null,
+    client_name: i.clientName || null,
     status: "enviado",
     is_auto: false,
     company_id: i.companyId,

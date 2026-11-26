@@ -399,7 +399,22 @@ export default function RelatorioControleLancamentos() {
     sug: RdoSuggestion; tipo: string; kind: "odometer" | "hourmeter";
     status: WorkStatusSuggestion | "Disposição" | "Manutenção"; period: "diurno" | "noturno";
     ini: string; fim: string; semBase: boolean;
+    ogs: string; local: string; operador: string;
   }>(null);
+  const [opcoesCriacao, setOpcoesCriacao] = useState<{ ogs: { numero: string; cliente: string; local: string }[]; operadores: string[] } | null>(null);
+  useEffect(() => {
+    if (!createTarget || opcoesCriacao || !companyId) return;
+    (async () => {
+      const [o, e] = await Promise.all([
+        (supabase as any).from("ogs_reference").select("ogs_number,client_name,location_address").eq("company_id", companyId).order("ogs_number"),
+        (supabase as any).from("employees").select("name").eq("company_id", companyId).eq("status", "ativo").order("name").limit(2000),
+      ]);
+      setOpcoesCriacao({
+        ogs: ((o.data || []) as any[]).filter(x => x.ogs_number).map(x => ({ numero: String(x.ogs_number), cliente: x.client_name || "", local: x.location_address || "" })),
+        operadores: ((e.data || []) as any[]).map(x => x.name).filter(Boolean),
+      });
+    })().catch(() => setOpcoesCriacao({ ogs: [], operadores: [] }));
+  }, [createTarget, opcoesCriacao, companyId]);
   const [creating, setCreating] = useState(false);
 
   // Layout (opcional, por navegador): "padrao" = coluna central; "painel" = tela toda, lista à esquerda + detalhe à direita
@@ -764,6 +779,7 @@ export default function RelatorioControleLancamentos() {
     setCreateTarget({
       sug, tipo: tipoBase, kind, period,
       status: sug.workStatus || "Disposição",
+      ogs: sug.ogs || "", local: sug.local || "", operador: "",
       ini: prev.value != null ? String(prev.value) : "", fim: prev.value != null ? String(prev.value) : "",
       semBase: prev.value == null,
     });
@@ -782,7 +798,11 @@ export default function RelatorioControleLancamentos() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) throw new Error("Sessão expirada. Entre novamente.");
-      const { sug } = createTarget;
+      const sug = { ...createTarget.sug, ogs: createTarget.ogs.trim() || null, local: createTarget.local.trim() || null };
+      const ogsSel = opcoesCriacao?.ogs.find(x => x.numero === sug.ogs);
+      if (sug.ogs && opcoesCriacao && !ogsSel) { toast.error("OGS não encontrada no cadastro. Escolha uma da lista ou deixe em branco."); setCreating(false); return; }
+      const operador = createTarget.operador.trim();
+      if (operador && opcoesCriacao && !opcoesCriacao.operadores.includes(operador)) { toast.error("Operador não encontrado entre os funcionários ativos. Escolha um da lista ou deixe em branco."); setCreating(false); return; }
       // Reconferir logo antes do insert (evita corrida com o operador lançando o mesmo turno)
       const { data: existing, error: exErr } = await (supabase as any).from("equipment_diaries").select("id")
         .eq("company_id", companyId).eq("equipment_fleet", sug.fleet).eq("date", sug.date)
@@ -798,6 +818,7 @@ export default function RelatorioControleLancamentos() {
         suggestion: sug, workStatus: createTarget.status, period: createTarget.period,
         equipmentType: createTarget.tipo || "Equipamento", meterKind: createTarget.kind,
         meterInitial: ini, meterFinal: fim ?? ini, companyId, userId: session.user.id,
+        operatorName: operador || null, clientName: ogsSel?.cliente || null,
         creatorName: profile.nome_completo, createdOn: new Date().toLocaleDateString("pt-BR"),
       });
       const { error: insErr } = await (supabase as any).from("equipment_diaries").insert(payload);
@@ -1159,8 +1180,25 @@ export default function RelatorioControleLancamentos() {
               </div>
               <div className="p-5 space-y-3 text-sm">
                 <p className="text-xs text-slate-600 bg-slate-50 border rounded-md p-2">📋 {describeSuggestion(createTarget.sug)}</p>
-                {createTarget.sug.noRdo && <p className="text-xs text-amber-700">⚠️ Nenhum RDO apontou este equipamento. Local, turno e status abaixo são só um ponto de partida (último local conhecido, status Disposição): confira antes de criar.</p>}
+                {createTarget.sug.noRdo && <p className="text-xs text-amber-700">⚠️ Nenhum RDO apontou este equipamento. OGS, local, turno e status abaixo são só um ponto de partida (último local conhecido, status Disposição): confira antes de criar.</p>}
                 <div className="grid grid-cols-2 gap-3">
+                  <label className="text-xs font-semibold text-gray-500">OGS
+                    <Input list="cl-ogs" value={createTarget.ogs} placeholder="Digite ou escolha"
+                      onChange={e => {
+                        const v = e.target.value;
+                        const hit = opcoesCriacao?.ogs.find(x => x.numero === v);
+                        setCreateTarget({ ...createTarget, ogs: v, local: hit?.local || createTarget.local });
+                      }} className="mt-1 h-9 text-sm" />
+                    <datalist id="cl-ogs">{(opcoesCriacao?.ogs || []).map(o => <option key={o.numero} value={o.numero}>{o.cliente}</option>)}</datalist>
+                  </label>
+                  <label className="text-xs font-semibold text-gray-500">OPERADOR
+                    <Input list="cl-operadores" value={createTarget.operador} placeholder="Opcional"
+                      onChange={e => setCreateTarget({ ...createTarget, operador: e.target.value })} className="mt-1 h-9 text-sm" />
+                    <datalist id="cl-operadores">{(opcoesCriacao?.operadores || []).map(n => <option key={n} value={n} />)}</datalist>
+                  </label>
+                  <label className="text-xs font-semibold text-gray-500 col-span-2">LOCAL
+                    <Input value={createTarget.local} onChange={e => setCreateTarget({ ...createTarget, local: e.target.value })} className="mt-1 h-9 text-sm" />
+                  </label>
                   <label className="text-xs font-semibold text-gray-500">STATUS
                     <select value={createTarget.status} onChange={e => setCreateTarget({ ...createTarget, status: e.target.value as any })}
                       className="mt-1 h-9 w-full text-sm border border-gray-200 rounded-md px-2 bg-white text-slate-700">
