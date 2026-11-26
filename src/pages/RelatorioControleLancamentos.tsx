@@ -16,7 +16,7 @@ import { retroactiveInfo } from "@/lib/diaryDeadlineAlerts";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   buildRdoSuggestions, buildDiaryFromRdoPayload, fallbackSuggestion, describeSuggestion, previousMeter, normFleet,
-  buildBatchEntries, normalizeRestStatus, planMeters, anchorsFrom, lastKnown, type BatchEntry,
+  buildBatchEntries, normalizeRestStatus, buildTimeEntries, APONT_PADRAO, type ApontTemplate, planMeters, anchorsFrom, lastKnown, type BatchEntry,
   type RdoSuggestion, type WorkStatusSuggestion,
 } from "@/lib/rdoDiarySuggestions";
 import { toast } from "sonner";
@@ -429,6 +429,20 @@ export default function RelatorioControleLancamentos() {
     })().catch(() => setOpcoesCriacao({ ogs: [], operadores: [] }));
   }, [createTarget, lote, opcoesCriacao, companyId]);
   const [creating, setCreating] = useState(false);
+  // Apontamento de horas padrão por turno (por navegador/empresa), usado nos diários "Trabalhando" criados do RDO
+  const apontKey = `wf_ctrl_lanc_apont_${companyId || "x"}`;
+  const [apont, setApont] = useState<ApontTemplate>(APONT_PADRAO);
+  useEffect(() => {
+    try { const raw = localStorage.getItem(apontKey); setApont(raw ? { ...APONT_PADRAO, ...JSON.parse(raw) } : APONT_PADRAO); } catch { setApont(APONT_PADRAO); }
+  }, [apontKey]);
+  const salvarApont = (next: ApontTemplate) => { setApont(next); try { localStorage.setItem(apontKey, JSON.stringify(next)); } catch { /* ignore */ } };
+  const gravarApontamentos = async (diaryId: string, period: "diurno" | "noturno", hours: number) => {
+    const rows = buildTimeEntries(period, hours, apont).map(r => ({ ...r, diary_id: diaryId, company_id: companyId }));
+    if (!rows.length) return true;
+    const { error } = await (supabase as any).from("equipment_time_entries").insert(rows);
+    if (error) console.error("[apontamentos]", error);
+    return !error;
+  };
 
   // Layout (opcional, por navegador): "padrao" = coluna central; "painel" = tela toda, lista à esquerda + detalhe à direita
   const [layout, setLayout] = useState<"padrao" | "painel">(() => {
@@ -846,7 +860,7 @@ export default function RelatorioControleLancamentos() {
         .gte("date", datas[0]).lte("date", datas[datas.length - 1]);
       if (exErr) throw exErr;
       const jaExiste = new Set<string>((existing || []).map((r: any) => `${r.date}|${r.period}`));
-      let criados = 0, pulados = 0, falhas = 0;
+      let criados = 0, pulados = 0, falhas = 0, semApont = 0;
       const hoje = new Date().toLocaleDateString("pt-BR");
       for (const e of lotePlano.ativos) {
         if (jaExiste.has(e.key)) { pulados++; continue; }
@@ -861,10 +875,12 @@ export default function RelatorioControleLancamentos() {
           operatorName: operadorDe(e) || null, clientName: ogInfo?.cliente || null, companyId, userId: session.user.id, creatorName: profile.nome_completo, createdOn: hoje,
         });
         if (payload.ogs_number === "000") { payload.ogs_number = null; payload.location_address = payload.location_address || "BASE / PÁTIO CENTRAL"; }
-        const { error: insErr } = await (supabase as any).from("equipment_diaries").insert(payload);
-        if (insErr) { if (insErr.code === "23505") pulados++; else { falhas++; console.error("[lote]", e.key, insErr); } } else criados++;
+        const { data: criado, error: insErr } = await (supabase as any).from("equipment_diaries").insert(payload).select("id").single();
+        if (insErr) { if (insErr.code === "23505") pulados++; else { falhas++; console.error("[lote]", e.key, insErr); } continue; }
+        criados++;
+        if (e.working && criado?.id && !(await gravarApontamentos(criado.id, e.period, m?.hours ?? 0))) semApont++;
       }
-      (falhas ? toast.error : toast.success)(`${criados} diário(s) criado(s)${pulados ? `, ${pulados} já existiam` : ""}${falhas ? `, ${falhas} falharam` : ""}.`);
+      (falhas ? toast.error : toast.success)(`${criados} diário(s) criado(s)${pulados ? `, ${pulados} já existiam` : ""}${falhas ? `, ${falhas} falharam` : ""}${semApont ? `, ${semApont} sem apontamento de horas (lançar manualmente)` : ""}.`);
       setLote(null);
       await buscarDados();
     } catch (err: any) {
@@ -910,12 +926,14 @@ export default function RelatorioControleLancamentos() {
         operatorName: operador || null, clientName: ogsSel?.cliente || null,
         creatorName: profile.nome_completo, createdOn: new Date().toLocaleDateString("pt-BR"),
       });
-      const { error: insErr } = await (supabase as any).from("equipment_diaries").insert(payload);
+      const { data: criado, error: insErr } = await (supabase as any).from("equipment_diaries").insert(payload).select("id").single();
       if (insErr) {
         toast.error(insErr.code === "23505" ? "Já existe diário enviado para este equipamento/dia/turno." : `Não foi possível criar o diário: ${insErr.message}`);
         return;
       }
-      toast.success(`Diário de ${sug.fleet} em ${fmtDate(sug.date)} criado a partir do RDO`);
+      let apontOk = true;
+      if (createTarget.status === "Trabalhando" && criado?.id) apontOk = await gravarApontamentos(criado.id, createTarget.period, Math.max(0, (fim ?? ini ?? 0) - (ini ?? 0)));
+      toast.success(`Diário de ${sug.fleet} em ${fmtDate(sug.date)} criado a partir do RDO${apontOk ? "" : " (apontamento de horas não gravado)"}`);
       setCreateTarget(null);
       await buscarDados();
     } catch (err: any) {
@@ -1272,7 +1290,7 @@ export default function RelatorioControleLancamentos() {
               <div className="p-4 overflow-auto text-xs">
                 <table className="w-full">
                   <thead><tr className="bg-slate-50 text-gray-500 text-left">
-                    {["", "Data", "Turno", "Status", "OGS", "Operador", "Local", lote.kind === "odometer" ? "Odo.Ini" : "Hor.Ini", lote.kind === "odometer" ? "Odo.Fin" : "Hor.Fin", "Horas", "Origem"].map(h => <th key={h} className="px-2 py-1.5 font-semibold whitespace-nowrap">{h}</th>)}
+                    {["", "Data", "Turno", "Status", "OGS", "Operador", "Local", lote.kind === "odometer" ? "Odo.Ini" : "Hor.Ini", lote.kind === "odometer" ? "Odo.Fin" : "Hor.Fin", "Horas", "Apontamento", "Origem"].map(h => <th key={h} className="px-2 py-1.5 font-semibold whitespace-nowrap">{h}</th>)}
                   </tr></thead>
                   <tbody>
                     {lote.entries.map(e => {
@@ -1304,6 +1322,9 @@ export default function RelatorioControleLancamentos() {
                           <td className="px-2 py-1 text-center">{on ? (m?.ini ?? "—") : "—"}</td>
                           <td className="px-2 py-1 text-center font-semibold">{on ? (m?.fin ?? "—") : "—"}</td>
                           <td className="px-2 py-1 text-center">{on && m?.hours ? `+${m.hours}` : "—"}</td>
+                          <td className="px-2 py-1 whitespace-nowrap text-[10px] text-slate-600">
+                            {on && e.working ? buildTimeEntries(e.period, m?.hours ?? 0, apont).map(r => `${r.start_time.slice(0, 5)}–${r.end_time.slice(0, 5)} ${r.activity === "Check e Preparação" ? "Check" : r.activity === "À Disposição" ? "Disp." : "Trab."}`).join(" · ") : "—"}
+                          </td>
                           <td className="px-2 py-1 whitespace-nowrap">{e.suggestion.noRdo ? <span className="text-amber-700 font-semibold">sem RDO (último local)</span> : "RDO"}{on && m?.note ? <span className="text-red-600"> · {m.note}</span> : null}</td>
                         </tr>
                       );
@@ -1314,7 +1335,26 @@ export default function RelatorioControleLancamentos() {
                   <p className="mt-2 text-amber-700">Não incluídos: {lote.skipped.map(x => `${fmtShort(x.date)} — ${x.reason}`).join("; ")}.</p>
                 )}
               </div>
-              <div className="px-5 py-4 border-t flex flex-wrap items-end gap-3">
+              <div className="px-5 pt-3 border-t grid gap-3 md:grid-cols-2 text-xs">
+                {(["noturno", "diurno"] as const).map(p => (
+                  <div key={p} className="rounded-md border border-gray-200 p-2">
+                    <div className="font-semibold text-gray-500 mb-1.5">APONTAMENTO PADRÃO — TURNO {p.toUpperCase()} (dias “Trabalhando”)</div>
+                    <div className="flex flex-wrap items-end gap-2">
+                      <label className="text-[11px] text-gray-500">Início
+                        <Input type="time" className="mt-0.5 h-8 text-xs w-28" value={apont[p].start} onChange={e => salvarApont({ ...apont, [p]: { ...apont[p], start: e.target.value || apont[p].start } })} />
+                      </label>
+                      <label className="text-[11px] text-gray-500">Check (min)
+                        <Input type="number" min={0} className="mt-0.5 h-8 text-xs w-20" value={apont[p].checkMin} onChange={e => salvarApont({ ...apont, [p]: { ...apont[p], checkMin: Math.max(0, Number(e.target.value) || 0) } })} />
+                      </label>
+                      <label className="text-[11px] text-gray-500">À disposição (min)
+                        <Input type="number" min={0} className="mt-0.5 h-8 text-xs w-20" value={apont[p].dispMin} onChange={e => salvarApont({ ...apont, [p]: { ...apont[p], dispMin: Math.max(0, Number(e.target.value) || 0) } })} />
+                      </label>
+                      <span className="text-[11px] text-slate-500 pb-2">Trabalhando = horas do horímetro do dia</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="px-5 py-4 flex flex-wrap items-end gap-3">
                 <label className="text-xs font-semibold text-gray-500 flex-1 min-w-[220px]">OPERADOR PADRÃO (preenche os dias "Trabalhando" sem operador próprio)
                   <Input list="cl-operadores-lote" value={lote.operador} onChange={e => setLote({ ...lote, operador: e.target.value })} className="mt-1 h-9 text-sm" />
                   <datalist id="cl-operadores-lote">{(opcoesCriacao?.operadores || []).map(n => <option key={n} value={n} />)}</datalist>

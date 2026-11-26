@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildDiaryFromRdoPayload, buildRdoSuggestions, fallbackSuggestion, planMeters, buildBatchEntries, anchorsFrom, normalizeRestStatus, climaToWorkStatus, describeSuggestion, isUsableRdo, previousMeter,
+  buildDiaryFromRdoPayload, buildRdoSuggestions, fallbackSuggestion, planMeters, buildBatchEntries, anchorsFrom, normalizeRestStatus, buildTimeEntries, APONT_PADRAO, climaToWorkStatus, describeSuggestion, isUsableRdo, previousMeter,
   type RdoHeader,
 } from "./rdoDiarySuggestions";
 
@@ -135,5 +135,16 @@ describe("rdoDiarySuggestions", () => {
     expect(normalizeRestStatus("2026-11-03", "Folga")).toBe("Disposição");
     expect(normalizeRestStatus("2026-11-15", "Disposição")).toBe("Folga");
     expect(normalizeRestStatus("2026-11-20", "Cancelou")).toBe("Cancelou");
+  });
+
+  it("apontamento padrão: Check → Trabalhando com a duração do horímetro, virando a meia-noite", () => {
+    expect(buildTimeEntries("noturno", 5, APONT_PADRAO)).toEqual([
+      { start_time: "21:00:00", end_time: "21:30:00", activity: "Check e Preparação" },
+      { start_time: "21:30:00", end_time: "02:30:00", activity: "Trabalhando" },
+    ]);
+    const d = buildTimeEntries("diurno", 3.5, { ...APONT_PADRAO, diurno: { start: "07:00", checkMin: 30, dispMin: 60 } });
+    expect(d.map(r => `${r.start_time}-${r.end_time} ${r.activity}`)).toEqual([
+      "07:00:00-07:30:00 Check e Preparação", "07:30:00-08:30:00 À Disposição", "08:30:00-12:00:00 Trabalhando"]);
+    expect(buildTimeEntries("diurno", 0, APONT_PADRAO)).toHaveLength(1);
   });
 });

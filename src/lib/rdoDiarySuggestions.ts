@@ -351,3 +351,38 @@ export function buildBatchEntries(
   });
   return { entries, skipped };
 }
+
+// ─── Apontamento de horas padrão (equipment_time_entries) ───────────────────
+
+export interface TurnoTemplate { start: string; checkMin: number; dispMin: number }
+export interface ApontTemplate { diurno: TurnoTemplate; noturno: TurnoTemplate }
+export const APONT_PADRAO: ApontTemplate = {
+  diurno: { start: "07:00", checkMin: 30, dispMin: 0 },
+  noturno: { start: "21:00", checkMin: 30, dispMin: 0 },
+};
+export interface TimeEntryRow { start_time: string; end_time: string; activity: string }
+
+const toMin = (hhmm: string) => { const [h, m] = hhmm.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+const toHHMMSS = (min: number) => {
+  const t = ((Math.round(min) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}:00`;
+};
+
+/**
+ * Apontamento padrão do turno: Check e Preparação → (À Disposição) → Trabalhando.
+ * A duração de "Trabalhando" = horas do medidor do dia (mantém apontamento e horímetro coerentes).
+ */
+export function buildTimeEntries(period: "diurno" | "noturno", workedHours: number, tpl: ApontTemplate): TimeEntryRow[] {
+  const t = tpl[period];
+  const rows: TimeEntryRow[] = [];
+  let cursor = toMin(t.start);
+  const add = (activity: string, minutes: number) => {
+    if (minutes <= 0) return;
+    rows.push({ start_time: toHHMMSS(cursor), end_time: toHHMMSS(cursor + minutes), activity });
+    cursor += minutes;
+  };
+  add("Check e Preparação", t.checkMin);
+  add("À Disposição", t.dispMin);
+  add("Trabalhando", Math.round(workedHours * 60));
+  return rows;
+}
