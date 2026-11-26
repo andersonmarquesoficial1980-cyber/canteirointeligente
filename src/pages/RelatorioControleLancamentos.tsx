@@ -16,7 +16,7 @@ import { retroactiveInfo } from "@/lib/diaryDeadlineAlerts";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   buildRdoSuggestions, buildDiaryFromRdoPayload, fallbackSuggestion, describeSuggestion, previousMeter, normFleet,
-  buildBatchEntries, planMeters, anchorsFrom, lastKnown, type BatchEntry,
+  buildBatchEntries, normalizeRestStatus, planMeters, anchorsFrom, lastKnown, type BatchEntry,
   type RdoSuggestion, type WorkStatusSuggestion,
 } from "@/lib/rdoDiarySuggestions";
 import { toast } from "sonner";
@@ -412,7 +412,7 @@ export default function RelatorioControleLancamentos() {
   }>(null);
   const [lote, setLote] = useState<null | {
     item: ListItem; entries: BatchEntry[]; skipped: { date: string; reason: string }[];
-    off: Set<string>; operador: string; tipo: string; kind: "odometer" | "hourmeter"; anchors: ReturnType<typeof anchorsFrom>;
+    off: Set<string>; operador: string; edits: Record<string, { ogs?: string; local?: string; operador?: string }>; tipo: string; kind: "odometer" | "hourmeter"; anchors: ReturnType<typeof anchorsFrom>;
   }>(null);
   const [opcoesCriacao, setOpcoesCriacao] = useState<{ ogs: { numero: string; cliente: string; local: string }[]; operadores: string[] } | null>(null);
   useEffect(() => {
@@ -796,7 +796,7 @@ export default function RelatorioControleLancamentos() {
       : /CAMINH|VEICUL|VEÍCUL|CARRETA|COMBOIO/.test(tipoKey(tipoBase)) ? "odometer" : "hourmeter";
     setCreateTarget({
       sug, tipo: tipoBase, kind, period,
-      status: sug.workStatus || "Disposição",
+      status: normalizeRestStatus(sug.date, sug.workStatus),
       ogs: sug.ogs || "", local: sug.local || "", operador: "",
       ini: planned?.ini != null ? String(planned.ini) : prev.value != null ? String(prev.value) : "",
       fim: planned?.fin != null ? String(planned.fin) : prev.value != null ? String(prev.value) : "",
@@ -813,7 +813,7 @@ export default function RelatorioControleLancamentos() {
     const prev = previousMeter(fleetRows, "9999-12-31", null);
     const tipoBase = (prev.equipmentType || item.tipo || "").trim();
     const kind = prev.value != null ? prev.kind : /CAMINH|VEICUL|VEÍCUL|CARRETA|COMBOIO/.test(tipoKey(tipoBase)) ? "odometer" : "hourmeter";
-    setLote({ item, entries, skipped, off: new Set(), operador: "", tipo: tipoBase, kind, anchors: anchorsFrom(fleetRows, kind) });
+    setLote({ item, entries, skipped, off: new Set(), operador: "", edits: {}, tipo: tipoBase, kind, anchors: anchorsFrom(fleetRows, kind) });
   };
 
   const lotePlano = useMemo(() => {
@@ -824,9 +824,17 @@ export default function RelatorioControleLancamentos() {
 
   const confirmarLote = async () => {
     if (!lote || !lotePlano || !companyId || !profile) return;
-    const operador = lote.operador.trim();
-    if (operador && opcoesCriacao && !opcoesCriacao.operadores.includes(operador)) {
-      toast.error("Operador não encontrado entre os funcionários ativos. Escolha um da lista ou deixe em branco."); return;
+    const operadorDe = (e: BatchEntry) => (e.working ? (lote.edits[e.key]?.operador ?? lote.operador).trim() : "");
+    const ogsDe = (e: BatchEntry) => (lote.edits[e.key]?.ogs ?? e.suggestion.ogs ?? "").trim();
+    for (const e of lotePlano.ativos) {
+      const op = operadorDe(e);
+      if (op && opcoesCriacao && !opcoesCriacao.operadores.includes(op)) {
+        toast.error(`${fmtShort(e.suggestion.date)}: operador "${op}" não encontrado entre os funcionários ativos.`); return;
+      }
+      const og = ogsDe(e);
+      if (og && og !== "000" && opcoesCriacao && !opcoesCriacao.ogs.some(x => x.numero === og)) {
+        toast.error(`${fmtShort(e.suggestion.date)}: OGS "${og}" não encontrada no cadastro.`); return;
+      }
     }
     setCreating(true);
     try {
@@ -843,10 +851,14 @@ export default function RelatorioControleLancamentos() {
       for (const e of lotePlano.ativos) {
         if (jaExiste.has(e.key)) { pulados++; continue; }
         const m = lotePlano.plan.get(e.key);
+        const og = ogsDe(e);
+        const ogInfo = opcoesCriacao?.ogs.find(x => x.numero === og);
+        const ed = lote.edits[e.key];
+        const sugLinha = { ...e.suggestion, ogs: og || null, local: ed?.local ?? e.suggestion.local };
         const payload = buildDiaryFromRdoPayload({
-          suggestion: e.suggestion, workStatus: e.status, period: e.period, equipmentType: lote.tipo || "Equipamento",
+          suggestion: sugLinha, workStatus: e.status, period: e.period, equipmentType: lote.tipo || "Equipamento",
           meterKind: lote.kind, meterInitial: m?.ini ?? null, meterFinal: m?.fin ?? m?.ini ?? null,
-          operatorName: operador || null, companyId, userId: session.user.id, creatorName: profile.nome_completo, createdOn: hoje,
+          operatorName: operadorDe(e) || null, clientName: ogInfo?.cliente || null, companyId, userId: session.user.id, creatorName: profile.nome_completo, createdOn: hoje,
         });
         if (payload.ogs_number === "000") { payload.ogs_number = null; payload.location_address = payload.location_address || "BASE / PÁTIO CENTRAL"; }
         const { error: insErr } = await (supabase as any).from("equipment_diaries").insert(payload);
@@ -1260,7 +1272,7 @@ export default function RelatorioControleLancamentos() {
               <div className="p-4 overflow-auto text-xs">
                 <table className="w-full">
                   <thead><tr className="bg-slate-50 text-gray-500 text-left">
-                    {["", "Data", "Turno", "Status", "OGS", "Local", lote.kind === "odometer" ? "Odo.Ini" : "Hor.Ini", lote.kind === "odometer" ? "Odo.Fin" : "Hor.Fin", "Horas", "Origem"].map(h => <th key={h} className="px-2 py-1.5 font-semibold whitespace-nowrap">{h}</th>)}
+                    {["", "Data", "Turno", "Status", "OGS", "Operador", "Local", lote.kind === "odometer" ? "Odo.Ini" : "Hor.Ini", lote.kind === "odometer" ? "Odo.Fin" : "Hor.Fin", "Horas", "Origem"].map(h => <th key={h} className="px-2 py-1.5 font-semibold whitespace-nowrap">{h}</th>)}
                   </tr></thead>
                   <tbody>
                     {lote.entries.map(e => {
@@ -1272,8 +1284,23 @@ export default function RelatorioControleLancamentos() {
                           <td className="px-2 py-1 whitespace-nowrap font-medium">{fmtShort(e.suggestion.date)}</td>
                           <td className="px-2 py-1 capitalize">{e.period}</td>
                           <td className="px-2 py-1"><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor(e.status)}`}>{e.status}</span></td>
-                          <td className="px-2 py-1">{e.suggestion.ogs || "—"}</td>
-                          <td className="px-2 py-1 max-w-[220px] truncate" title={e.suggestion.local || ""}>{e.suggestion.local || "—"}</td>
+                          <td className="px-2 py-1">
+                            {e.working && on ? (
+                              <Input list="cl-ogs" className="h-7 text-xs w-24" value={lote.edits[e.key]?.ogs ?? e.suggestion.ogs ?? ""}
+                                onChange={ev => {
+                                  const v = ev.target.value;
+                                  const hit = opcoesCriacao?.ogs.find(x => x.numero === v);
+                                  setLote(l => l && ({ ...l, edits: { ...l.edits, [e.key]: { ...l.edits[e.key], ogs: v, ...(hit ? { local: hit.local } : {}) } } }));
+                                }} />
+                            ) : (e.suggestion.ogs || "—")}
+                          </td>
+                          <td className="px-2 py-1">
+                            {e.working && on ? (
+                              <Input list="cl-operadores-lote" className="h-7 text-xs w-44" placeholder={lote.operador || "Operador"} value={lote.edits[e.key]?.operador ?? ""}
+                                onChange={ev => { const v = ev.target.value; setLote(l => l && ({ ...l, edits: { ...l.edits, [e.key]: { ...l.edits[e.key], operador: v } } })); }} />
+                            ) : <span className="text-gray-400">—</span>}
+                          </td>
+                          <td className="px-2 py-1 max-w-[220px] truncate" title={lote.edits[e.key]?.local ?? e.suggestion.local ?? ""}>{lote.edits[e.key]?.local ?? e.suggestion.local ?? "—"}</td>
                           <td className="px-2 py-1 text-center">{on ? (m?.ini ?? "—") : "—"}</td>
                           <td className="px-2 py-1 text-center font-semibold">{on ? (m?.fin ?? "—") : "—"}</td>
                           <td className="px-2 py-1 text-center">{on && m?.hours ? `+${m.hours}` : "—"}</td>
@@ -1288,12 +1315,12 @@ export default function RelatorioControleLancamentos() {
                 )}
               </div>
               <div className="px-5 py-4 border-t flex flex-wrap items-end gap-3">
-                <label className="text-xs font-semibold text-gray-500 flex-1 min-w-[220px]">OPERADOR (opcional, vale para todos)
+                <label className="text-xs font-semibold text-gray-500 flex-1 min-w-[220px]">OPERADOR PADRÃO (preenche os dias "Trabalhando" sem operador próprio)
                   <Input list="cl-operadores-lote" value={lote.operador} onChange={e => setLote({ ...lote, operador: e.target.value })} className="mt-1 h-9 text-sm" />
                   <datalist id="cl-operadores-lote">{(opcoesCriacao?.operadores || []).map(n => <option key={n} value={n} />)}</datalist>
                 </label>
                 <p className="text-[11px] text-slate-500 flex-[2] min-w-[260px]">
-                  O intervalo sem medição é dividido igualmente entre os dias “Trabalhando”; Folga/Cancelou/Disposição ficam com inicial = final. Dias sem RDO entram como Disposição no último local conhecido — desmarque se não souber. Tudo entra como enviado, com a origem nas observações.
+                  O intervalo sem medição é dividido igualmente entre os dias “Trabalhando”. Dia sem trabalho gera um único diário, no turno predominante da frota: Folga só em fim de semana/feriado, senão Disposição. Dias sem RDO entram no último local conhecido — desmarque se não souber. Tudo entra como enviado, com a origem nas observações.
                 </p>
                 <Button variant="outline" size="sm" disabled={creating} onClick={() => setLote(null)}>Cancelar</Button>
                 <Button size="sm" disabled={creating || lotePlano.ativos.length === 0} onClick={confirmarLote} className="bg-slate-800 hover:bg-slate-900 text-white">

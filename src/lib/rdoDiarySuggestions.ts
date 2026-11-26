@@ -2,6 +2,8 @@
 // Lógica pura: usada pelo Controle de Lançamentos para sugerir onde estava a frota nos dias sem diário
 // e para montar o payload de um diário criado a partir do RDO (ação manual de admin/programador).
 
+import { isNonWorkingDay } from "@/lib/diaryDeadlineAlerts";
+
 export interface RdoHeader {
   id: string;
   data: string | null;
@@ -299,24 +301,53 @@ export interface BatchEntry {
   working: boolean;
 }
 
-/** Uma entrada por dia/turno faltante (todos os RDOs; sem RDO usa o último local). Segundo RDO no mesmo turno é pulado. */
+const isRest = (d: string) => isNonWorkingDay(d);
+
+/** Folga só em fim de semana/feriado; em dia útil sem trabalho é Disposição. Cancelou é mantido. */
+export function normalizeRestStatus(date: string, status: WorkStatusSuggestion | "Disposição" | null | undefined): WorkStatusSuggestion | "Disposição" {
+  if (status === "Trabalhando" || status === "Cancelou") return status;
+  return isRest(date) ? "Folga" : "Disposição";
+}
+
+/** Turno em que a frota mais trabalha (diários enviados + RDOs "Trabalhou"); empate → último conhecido. */
+export function predominantPeriod(rows: LastKnownRow[], byDate: Map<string, RdoSuggestion[]> | undefined): "diurno" | "noturno" {
+  const count = { diurno: 0, noturno: 0 };
+  rows.forEach(r => { if (r.period === "diurno" || r.period === "noturno") count[r.period]++; });
+  byDate?.forEach(list => list.forEach(sg => { if (sg.period && sg.workStatus === "Trabalhando") count[sg.period]++; }));
+  if (count.diurno !== count.noturno) return count.diurno > count.noturno ? "diurno" : "noturno";
+  const last = [...rows].filter(r => r.period).sort((a, b) => pos(a).localeCompare(pos(b))).pop();
+  return last?.period === "diurno" ? "diurno" : "noturno";
+}
+
+/**
+ * Uma entrada por dia/turno faltante.
+ * - Dia com trabalho: uma entrada por turno trabalhado (segundo RDO no mesmo turno é pulado).
+ * - Dia sem trabalho (Folga/Disposição): UMA entrada só, no turno predominante da frota.
+ * - Status de descanso segue a regra: Folga só em fim de semana/feriado, senão Disposição.
+ */
 export function buildBatchEntries(
   fleet: string, missing: string[], byDate: Map<string, RdoSuggestion[]> | undefined, rows: LastKnownRow[],
 ): { entries: BatchEntry[]; skipped: { date: string; reason: string }[] } {
   const entries: BatchEntry[] = [];
   const skipped: { date: string; reason: string }[] = [];
+  const predominant = predominantPeriod(rows, byDate);
   [...missing].sort().forEach(date => {
-    const last = lastKnown(rows, date);
     const sugs = byDate?.get(date) || [];
-    const list = sugs.length ? sugs : [fallbackSuggestion(fleet, date, last)];
-    const used = new Set<string>();
-    list.forEach(sg => {
-      const period = sg.period || last?.period || "diurno";
-      if (used.has(period)) { skipped.push({ date, reason: `2º RDO no turno ${period} (o banco aceita 1 diário por turno)` }); return; }
-      used.add(period);
-      const status = sg.workStatus || "Disposição";
-      entries.push({ key: `${date}|${period}`, suggestion: sg, period, status, working: status === "Trabalhando" });
-    });
+    const list = sugs.length ? sugs : [fallbackSuggestion(fleet, date, lastKnown(rows, date))];
+    const working = list.filter(sg => sg.workStatus === "Trabalhando");
+    if (working.length) {
+      const used = new Set<string>();
+      working.forEach(sg => {
+        const period = sg.period || predominant;
+        if (used.has(period)) { skipped.push({ date, reason: `2º RDO no turno ${period} (o banco aceita 1 diário por turno)` }); return; }
+        used.add(period);
+        entries.push({ key: `${date}|${period}`, suggestion: sg, period, status: "Trabalhando", working: true });
+      });
+      return;
+    }
+    const pick = list.find(sg => sg.period === predominant) || list[0];
+    const period = pick.noRdo ? predominant : (pick.period || predominant);
+    entries.push({ key: `${date}|${period}`, suggestion: pick, period, status: normalizeRestStatus(date, pick.workStatus === "Cancelou" ? "Cancelou" : null) as BatchEntry["status"], working: false });
   });
   return { entries, skipped };
 }

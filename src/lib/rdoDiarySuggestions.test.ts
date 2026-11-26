@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildDiaryFromRdoPayload, buildRdoSuggestions, fallbackSuggestion, planMeters, buildBatchEntries, anchorsFrom, climaToWorkStatus, describeSuggestion, isUsableRdo, previousMeter,
+  buildDiaryFromRdoPayload, buildRdoSuggestions, fallbackSuggestion, planMeters, buildBatchEntries, anchorsFrom, normalizeRestStatus, climaToWorkStatus, describeSuggestion, isUsableRdo, previousMeter,
   type RdoHeader,
 } from "./rdoDiarySuggestions";
 
@@ -114,12 +114,26 @@ describe("rdoDiarySuggestions", () => {
        rdo({ id: "c", data: "2026-11-07", turno: "diurno" }), rdo({ id: "d", data: "2026-11-07", turno: "noturno", clima: "Folga" })],
       ["a", "b", "c", "d"].map(id => ({ rdo_id: id, frota: "BC66" })), new Map()).get("BC66");
     const rows = [{ date: "2026-11-01", period: "noturno", meter_final: 1, odometer_final: null, ogs_number: "2539", location_address: "SP-280" }];
-    const { entries, skipped } = buildBatchEntries("BC66", ["2026-11-02", "2026-11-07", "2026-11-09"], byDate, rows);
-    expect(entries.map(e => e.key)).toEqual(["2026-11-02|noturno", "2026-11-07|diurno", "2026-11-07|noturno", "2026-11-09|noturno"]);
-    expect(entries[0]).toMatchObject({ status: "Disposição", working: false });
+    const { entries, skipped } = buildBatchEntries("BC66", ["2026-11-03", "2026-11-07", "2026-11-09"], byDate, rows);
+    // 07/11 (sáb): trabalhou no diurno → Folga do noturno não gera diário
+    expect(entries.map(e => e.key)).toEqual(["2026-11-03|noturno", "2026-11-07|diurno", "2026-11-09|noturno"]);
+    expect(entries[0]).toMatchObject({ status: "Disposição", working: false }); // 03/11 é terça: Disposição
     expect(entries[0].suggestion.noRdo).toBe(true);
-    expect(entries[2]).toMatchObject({ status: "Folga", working: false });
     expect(skipped).toHaveLength(1);
     expect(anchorsFrom([{ ...rows[0], meter_initial: 1 }], "hourmeter")[0]).toMatchObject({ initial: 1, final: 1 });
+  });
+
+  it("dia sem trabalho: 1 diário só, no turno predominante; Folga só em fim de semana/feriado", () => {
+    const byDate = buildRdoSuggestions(
+      [rdo({ id: "a", data: "2026-11-09", turno: "diurno", clima: "Folga" }), rdo({ id: "b", data: "2026-11-09", turno: "noturno", clima: "Folga" }),
+       rdo({ id: "c", data: "2026-11-08", turno: "diurno", clima: "Folga" }), rdo({ id: "d", data: "2026-11-08", turno: "noturno", clima: "Folga" }),
+       rdo({ id: "e", data: "2026-11-10", turno: "noturno", clima: "Trabalhou" }), rdo({ id: "f", data: "2026-11-11", turno: "noturno", clima: "Trabalhou" }),
+       rdo({ id: "g", data: "2026-11-12", turno: "diurno", clima: "Trabalhou" })],
+      ["a", "b", "c", "d", "e", "f", "g"].map(id => ({ rdo_id: id, frota: "BC66" })), new Map()).get("BC66");
+    const { entries } = buildBatchEntries("BC66", ["2026-11-08", "2026-11-09"], byDate, []);
+    expect(entries.map(e => `${e.key}:${e.status}`)).toEqual(["2026-11-08|noturno:Folga", "2026-11-09|noturno:Disposição"]);
+    expect(normalizeRestStatus("2026-11-03", "Folga")).toBe("Disposição");
+    expect(normalizeRestStatus("2026-11-15", "Disposição")).toBe("Folga");
+    expect(normalizeRestStatus("2026-11-20", "Cancelou")).toBe("Cancelou");
   });
 });
