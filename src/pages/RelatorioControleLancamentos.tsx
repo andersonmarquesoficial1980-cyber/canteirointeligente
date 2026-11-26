@@ -13,6 +13,11 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { toLocalISODate } from "@/lib/date-local";
 import { findMeterGaps, eligibleFleetCoverage, type MeterDiary, type MeterGap } from "@/lib/equipmentDiaryAudit";
 import { retroactiveInfo } from "@/lib/diaryDeadlineAlerts";
+import { usePermissions } from "@/hooks/usePermissions";
+import {
+  buildRdoSuggestions, buildDiaryFromRdoPayload, describeSuggestion, previousMeter, normFleet,
+  type RdoSuggestion, type WorkStatusSuggestion,
+} from "@/lib/rdoDiarySuggestions";
 import { toast } from "sonner";
 
 function countRetro(rows: { status: string; is_auto: boolean; date: string; created_at: string; observations: string | null }[]): number {
@@ -132,7 +137,7 @@ function statusIcon(ws: string | null) {
 
 // ─── CalCell ──────────────────────────────────────────────────────────────────
 
-function CalCell({ rows, onClick, empty }: { rows: DiarioRow[]; onClick: () => void; empty: EmptyState }) {
+function CalCell({ rows, onClick, empty, rdoCount = 0 }: { rows: DiarioRow[]; onClick: () => void; empty: EmptyState; rdoCount?: number }) {
   const manuais = rows.filter(r => r.status === "enviado" && !r.is_auto);
   if (manuais.length === 0) {
     if (rows.length === 0 && empty === "na") {
@@ -145,8 +150,10 @@ function CalCell({ rows, onClick, empty }: { rows: DiarioRow[]; onClick: () => v
       return <div title="Hoje ainda não está atrasado" className="w-full h-10 rounded flex items-center justify-center bg-amber-50 border border-amber-200 text-amber-600 text-[10px] font-semibold">Hoje</div>;
     }
     return (
-      <div className="w-full h-10 rounded flex items-center justify-center bg-red-50 border border-red-200">
+      <div title={rdoCount ? `${rdoCount} RDO(s) apontam este equipamento neste dia` : undefined}
+        className="w-full h-10 rounded flex flex-col items-center justify-center bg-red-50 border border-red-200 leading-none">
         <span className="text-red-500 text-xs font-semibold">{rows.length ? "Auto ≠ diário" : "❌"}</span>
+        {rdoCount > 0 && <span className="text-[9px] font-bold text-amber-700 mt-0.5">📋 {rdoCount} RDO</span>}
       </div>
     );
   }
@@ -170,8 +177,12 @@ function CalCell({ rows, onClick, empty }: { rows: DiarioRow[]; onClick: () => v
 
 // ─── Detalhe (calendário + tabela) — usado no acordeão e no painel lateral ─────
 
-function Detalhe({ item, diasLabel, onCell, onCopy, onNavigate, compact }: {
+function Detalhe({ item, diasLabel, onCell, onCopy, onNavigate, compact, rdoByDate, rdoError, canCreate, onCreate }: {
   item: ListItem;
+  rdoByDate?: Map<string, RdoSuggestion[]>;
+  rdoError: boolean;
+  canCreate: boolean;
+  onCreate: (s: RdoSuggestion, item: ListItem) => void;
   diasLabel: { d: string; label: string; day: string; isWE: boolean }[];
   onCell: (titulo: string, rows: DiarioRow[]) => void;
   onCopy: (item: ListItem) => void;
@@ -193,11 +204,40 @@ function Detalhe({ item, diasLabel, onCell, onCopy, onNavigate, compact }: {
             <div className="flex-1 text-sm">
               {item.missing.length > 0 && (
                 <>
-                  <div className="font-semibold text-red-700 mb-1.5">{item.missing.length} dia(s) sem diário enviado</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {item.missing.map(d => (
-                      <span key={d} className="px-2 py-0.5 rounded-full bg-white border border-red-200 text-red-700 text-xs font-medium">{fmtShort(d)}</span>
-                    ))}
+                  <div className="font-semibold text-red-700 mb-1.5">
+                    {item.missing.length} dia(s) sem diário enviado
+                    {!rdoError && (() => {
+                      const comRdo = item.missing.filter(d => (rdoByDate?.get(d)?.length || 0) > 0).length;
+                      return <span className="ml-2 text-xs font-medium text-slate-600">· {comRdo} com RDO apontando o equipamento · {item.missing.length - comRdo} sem RDO</span>;
+                    })()}
+                  </div>
+                  {rdoError && <p className="text-xs text-amber-700 mb-1.5">⚠️ Não foi possível consultar os RDOs; sugestões de localização indisponíveis.</p>}
+                  <div className="space-y-1 max-h-[420px] overflow-y-auto pr-1">
+                    {item.missing.map(d => {
+                      const sugs = rdoByDate?.get(d) || [];
+                      return (
+                        <div key={d} className="flex flex-wrap items-start gap-2 bg-white/70 border border-red-100 rounded-md px-2 py-1.5">
+                          <span className="px-2 py-0.5 rounded-full bg-white border border-red-200 text-red-700 text-xs font-medium whitespace-nowrap">{fmtShort(d)}</span>
+                          {sugs.length === 0 ? (
+                            <span className="text-xs text-slate-500 py-0.5">{rdoError ? "—" : "Sem RDO com este equipamento — localização desconhecida"}</span>
+                          ) : (
+                            <div className="flex-1 min-w-[240px] space-y-1">
+                              {sugs.map(sg => (
+                                <div key={sg.rdoId} className="flex flex-wrap items-center gap-2 text-xs">
+                                  <span className="text-slate-700">📋 {describeSuggestion(sg)}</span>
+                                  <button type="button" className="underline text-slate-500" onClick={() => onNavigate(`/visualizar-rdo/${sg.rdoId}`)}>Ver RDO</button>
+                                  {canCreate && (
+                                    <Button size="sm" variant="outline" className="no-print h-6 px-2 text-[11px] bg-white" onClick={() => onCreate(sg, item)}>
+                                      Criar diário
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </>
               )}
@@ -233,7 +273,7 @@ function Detalhe({ item, diasLabel, onCell, onCopy, onNavigate, compact }: {
             const dayRows = item.rows.filter(r => r.date === d);
             return (
               <div key={"c" + d}>
-                <CalCell rows={dayRows} empty={item.dayState.get(d) || "missing"}
+                <CalCell rows={dayRows} empty={item.dayState.get(d) || "missing"} rdoCount={rdoByDate?.get(d)?.length || 0}
                   onClick={() => { if (dayRows.length > 0) onCell(`${item.titulo} — ${fmtDate(d)}`, dayRows); }} />
               </div>
             );
@@ -342,6 +382,18 @@ export default function RelatorioControleLancamentos() {
   const [cfgAberta, setCfgAberta] = useState(false);
   const [cfgBusca, setCfgBusca] = useState("");
 
+  // RDO × diário: sugestões de localização e criação do diário a partir do RDO (admin/programador)
+  const { permissions } = usePermissions();
+  const canCreateFromRdo = Boolean(permissions?.is_admin || permissions?.modulo_programador);
+  const [rdoSug, setRdoSug] = useState<Map<string, Map<string, RdoSuggestion[]>>>(new Map());
+  const [rdoError, setRdoError] = useState(false);
+  const [createTarget, setCreateTarget] = useState<null | {
+    sug: RdoSuggestion; tipo: string; kind: "odometer" | "hourmeter";
+    status: WorkStatusSuggestion | "Disposição" | "Manutenção"; period: "diurno" | "noturno";
+    ini: string; fim: string; semBase: boolean;
+  }>(null);
+  const [creating, setCreating] = useState(false);
+
   // Layout (opcional, por navegador): "padrao" = coluna central; "painel" = tela toda, lista à esquerda + detalhe à direita
   const [layout, setLayout] = useState<"padrao" | "painel">(() => {
     try { return localStorage.getItem("wf_ctrl_lanc_layout") === "painel" ? "painel" : "padrao"; } catch { return "padrao"; }
@@ -403,7 +455,7 @@ export default function RelatorioControleLancamentos() {
       const baselineRaw: MeterDiary[] = [];
       for (let offset = 0; ; offset += 1000) {
         const page = await (supabase as any).from("equipment_diaries")
-          .select("id,equipment_fleet,date,period,created_at,status,is_auto,meter_initial,meter_final,odometer_initial,odometer_final")
+          .select("id,equipment_fleet,date,period,created_at,status,is_auto,equipment_type,meter_initial,meter_final,odometer_initial,odometer_final")
           .eq("company_id", companyId).eq("status", "enviado")
           .or("is_auto.is.null,is_auto.eq.false")
           .gte("date", baselineStart.toISOString().slice(0, 10)).lt("date", dataIni)
@@ -480,6 +532,37 @@ export default function RelatorioControleLancamentos() {
         status: e.status || "",
         created_at: e.created_at || null,
       })));
+      // 5 — RDOs do período: onde cada frota foi apontada (falha aqui não invalida o painel)
+      try {
+        const rdos: any[] = [];
+        for (let offset = 0; ; offset += 500) {
+          const page = await (supabase as any).from("rdo_diarios")
+            .select("id,data,turno,clima,status_validacao,tipo_rdo,obra_nome,ogs_id,local,encarregado,preenchido_por")
+            .eq("company_id", companyId).gte("data", dataIni).lte("data", dataFim)
+            .order("data").order("id").range(offset, offset + 499);
+          if (page.error) throw page.error;
+          rdos.push(...(page.data || []));
+          if (!page.data || page.data.length < 500) break;
+        }
+        const equips: any[] = [];
+        for (let i = 0; i < rdos.length; i += 100) {
+          const { data, error: eqErr } = await (supabase as any).from("rdo_equipamentos")
+            .select("rdo_id,frota").in("rdo_id", rdos.slice(i, i + 100).map(r => r.id));
+          if (eqErr) throw eqErr;
+          equips.push(...(data || []));
+        }
+        const { data: ogsRows, error: ogsErr } = await (supabase as any).from("ogs_reference")
+          .select("id,ogs_number").eq("company_id", companyId);
+        if (ogsErr) throw ogsErr;
+        const ogsById = new Map<string, string>((ogsRows || []).filter((o: any) => o.id && o.ogs_number).map((o: any) => [o.id, String(o.ogs_number)]));
+        setRdoSug(buildRdoSuggestions(rdos, equips, ogsById));
+        setRdoError(false);
+      } catch (rdoErr) {
+        console.error("[ControleLancamentos] RDO", rdoErr);
+        setRdoSug(new Map());
+        setRdoError(true);
+      }
+
       setDiarios(rows);
       setMeterBaselines([...latestByFleet.values()]);
       setLoadedRange({ start: dataIni, end: dataFim });
@@ -642,12 +725,81 @@ export default function RelatorioControleLancamentos() {
   const expandirTudo = () => setExpandidos(prev => prev.size > 0 ? new Set() : new Set(itens.filter(i => !(i.kind === "usuario" && i.semLancamento)).map(i => `${i.kind}_${i.key}`)));
 
   const copiarCobranca = async (item: ListItem) => {
-    const texto = `Pendência de diário de equipamento\n${item.titulo}${item.key !== item.titulo ? ` (${item.key})` : ""}${item.tipo ? ` — ${item.tipo}` : ""}\nDias sem diário lançado: ${item.missing.map(fmtShort).join(", ")}\nPor favor, lance os diários que faltam.`;
+    const texto = `Pendência de diário de equipamento\n${item.titulo}${item.key !== item.titulo ? ` (${item.key})` : ""}${item.tipo ? ` — ${item.tipo}` : ""}\nDias sem diário lançado:\n${item.missing.map(d => {
+      const sugs = rdoSug.get(normFleet(item.key))?.get(d) || [];
+      return `• ${fmtShort(d)}${sugs.length ? ` — RDO: ${sugs.map(describeSuggestion).join(" | ")}` : ""}`;
+    }).join("\n")}\nPor favor, lance os diários que faltam.`;
     try { await navigator.clipboard.writeText(texto); toast.success("Cobrança copiada"); }
     catch { toast.error("Não foi possível copiar"); }
   };
 
   const abrirModal = (titulo: string, rows: DiarioRow[]) => setModal({ titulo, rows });
+
+  // Criar diário a partir do RDO — pré-preenche com o RDO e o último medidor conhecido; admin confere e confirma.
+  const abrirCriacao = (sug: RdoSuggestion, item: ListItem) => {
+    const fleetRows = [
+      ...diarios.filter(r => r.equipment_fleet === item.key && r.status === "enviado" && !r.is_auto),
+      ...meterBaselines.filter(b => b.equipment_fleet === item.key),
+    ] as any[];
+    const period = sug.period || "diurno";
+    const prev = previousMeter(fleetRows, sug.date, period);
+    const tipoBase = (prev.equipmentType || item.tipo || "").trim();
+    const kind = prev.value != null ? prev.kind
+      : /CAMINH|VEICUL|VEÍCUL|CARRETA|COMBOIO/.test(tipoKey(tipoBase)) ? "odometer" : "hourmeter";
+    setCreateTarget({
+      sug, tipo: tipoBase, kind, period,
+      status: sug.workStatus || "Disposição",
+      ini: prev.value != null ? String(prev.value) : "", fim: prev.value != null ? String(prev.value) : "",
+      semBase: prev.value == null,
+    });
+  };
+
+  const confirmarCriacao = async () => {
+    if (!createTarget || !companyId || !profile) return;
+    const num = (v: string) => (v.trim() === "" ? null : Number(v.replace(",", ".")));
+    const ini = num(createTarget.ini);
+    const fim = num(createTarget.fim);
+    if ((ini != null && !Number.isFinite(ini)) || (fim != null && !Number.isFinite(fim)) || (ini != null && fim != null && fim < ini)) {
+      toast.error("Medidor inválido: o final não pode ser menor que o inicial.");
+      return;
+    }
+    setCreating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error("Sessão expirada. Entre novamente.");
+      const { sug } = createTarget;
+      // Reconferir logo antes do insert (evita corrida com o operador lançando o mesmo turno)
+      const { data: existing, error: exErr } = await (supabase as any).from("equipment_diaries").select("id")
+        .eq("company_id", companyId).eq("equipment_fleet", sug.fleet).eq("date", sug.date)
+        .eq("period", createTarget.period).eq("status", "enviado").limit(1);
+      if (exErr) throw exErr;
+      if (existing?.length) {
+        toast.error(`Já existe diário enviado para ${sug.fleet} em ${fmtDate(sug.date)} (${createTarget.period}).`);
+        setCreateTarget(null);
+        await buscarDados();
+        return;
+      }
+      const payload = buildDiaryFromRdoPayload({
+        suggestion: sug, workStatus: createTarget.status, period: createTarget.period,
+        equipmentType: createTarget.tipo || "Equipamento", meterKind: createTarget.kind,
+        meterInitial: ini, meterFinal: fim ?? ini, companyId, userId: session.user.id,
+        creatorName: profile.nome_completo, createdOn: new Date().toLocaleDateString("pt-BR"),
+      });
+      const { error: insErr } = await (supabase as any).from("equipment_diaries").insert(payload);
+      if (insErr) {
+        toast.error(insErr.code === "23505" ? "Já existe diário enviado para este equipamento/dia/turno." : `Não foi possível criar o diário: ${insErr.message}`);
+        return;
+      }
+      toast.success(`Diário de ${sug.fleet} em ${fmtDate(sug.date)} criado a partir do RDO`);
+      setCreateTarget(null);
+      await buscarDados();
+    } catch (err: any) {
+      console.error("[ControleLancamentos] criar do RDO", err);
+      toast.error(err?.message || "Falha ao criar o diário.");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   // Config: listas auxiliares
   const frotasParaConfig = useMemo(() => {
@@ -931,7 +1083,7 @@ export default function RelatorioControleLancamentos() {
                     </button>
                     {exp && podeExpandir && (
                       <div className="border-t border-gray-100">
-                        <Detalhe item={item} diasLabel={diasLabel} onCell={abrirModal} onCopy={copiarCobranca} onNavigate={navigate} compact={false} />
+                        <Detalhe item={item} diasLabel={diasLabel} onCell={abrirModal} onCopy={copiarCobranca} onNavigate={navigate} compact={false} rdoByDate={rdoSug.get(normFleet(item.key))} rdoError={rdoError} canCreate={canCreateFromRdo} onCreate={abrirCriacao} />
                       </div>
                     )}
                   </div>
@@ -974,13 +1126,60 @@ export default function RelatorioControleLancamentos() {
                       <span className={`text-xs font-bold px-3 py-1 rounded-full ${selecionado.badgeCls}`}>{selecionado.badgeText}</span>
                       <span className="text-xs text-gray-400">{selecionado.rows.length} registros</span>
                     </div>
-                    <Detalhe item={selecionado} diasLabel={diasLabel} onCell={abrirModal} onCopy={copiarCobranca} onNavigate={navigate} compact />
+                    <Detalhe item={selecionado} diasLabel={diasLabel} onCell={abrirModal} onCopy={copiarCobranca} onNavigate={navigate} compact rdoByDate={rdoSug.get(normFleet(selecionado.key))} rdoError={rdoError} canCreate={canCreateFromRdo} onCreate={abrirCriacao} />
                   </>
                 )}
               </div>
             </div>
           )}
         </div>
+
+        {/* CRIAR DIÁRIO A PARTIR DO RDO */}
+        {createTarget && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 no-print" onClick={() => !creating && setCreateTarget(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+              <div className="bg-slate-800 text-white px-5 py-4 rounded-t-2xl">
+                <h3 className="font-bold text-base">Criar diário a partir do RDO</h3>
+                <p className="text-slate-300 text-xs">{createTarget.sug.fleet} — {fmtDate(createTarget.sug.date)}</p>
+              </div>
+              <div className="p-5 space-y-3 text-sm">
+                <p className="text-xs text-slate-600 bg-slate-50 border rounded-md p-2">📋 {describeSuggestion(createTarget.sug)}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-xs font-semibold text-gray-500">STATUS
+                    <select value={createTarget.status} onChange={e => setCreateTarget({ ...createTarget, status: e.target.value as any })}
+                      className="mt-1 h-9 w-full text-sm border border-gray-200 rounded-md px-2 bg-white text-slate-700">
+                      {["Trabalhando", "Folga", "Disposição", "Manutenção", "Cancelou"].map(x => <option key={x} value={x}>{x}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-xs font-semibold text-gray-500">TURNO
+                    <select value={createTarget.period} onChange={e => setCreateTarget({ ...createTarget, period: e.target.value as any })}
+                      className="mt-1 h-9 w-full text-sm border border-gray-200 rounded-md px-2 bg-white text-slate-700">
+                      <option value="diurno">Diurno</option><option value="noturno">Noturno</option>
+                    </select>
+                  </label>
+                  <label className="text-xs font-semibold text-gray-500">{createTarget.kind === "odometer" ? "ODÔMETRO" : "HORÍMETRO"} INICIAL
+                    <Input value={createTarget.ini} onChange={e => setCreateTarget({ ...createTarget, ini: e.target.value })} className="mt-1 h-9 text-sm" inputMode="decimal" />
+                  </label>
+                  <label className="text-xs font-semibold text-gray-500">{createTarget.kind === "odometer" ? "ODÔMETRO" : "HORÍMETRO"} FINAL
+                    <Input value={createTarget.fim} onChange={e => setCreateTarget({ ...createTarget, fim: e.target.value })} className="mt-1 h-9 text-sm" inputMode="decimal" />
+                  </label>
+                </div>
+                <p className="text-xs text-slate-500">
+                  {createTarget.semBase
+                    ? "Sem leitura anterior no histórico carregado: o medidor ficará em branco se não for informado."
+                    : "Medidor pré-preenchido com o último final conhecido (sem horas trabalhadas). Informe o final real se souber."}
+                  {" "}O diário entra como <strong>enviado</strong>, com a origem “gerado a partir do RDO” nas observações.
+                </p>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button variant="outline" size="sm" disabled={creating} onClick={() => setCreateTarget(null)}>Cancelar</Button>
+                  <Button size="sm" disabled={creating} onClick={confirmarCriacao} className="bg-slate-800 hover:bg-slate-900 text-white">
+                    {creating ? "Criando..." : "Criar diário"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* MODAL */}
         {modal && (
