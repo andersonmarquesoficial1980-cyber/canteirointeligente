@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
-import { ArrowLeft, ChevronDown, ChevronUp, Loader2, FileDown, FileSpreadsheet, Printer, Trash2, CheckSquare, Square } from "lucide-react";
+import { ArrowLeft, LayoutList, Table2, ChevronDown, ChevronUp, Loader2, FileDown, FileSpreadsheet, Printer, Trash2, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -24,6 +24,7 @@ import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import JSZip from "jszip";
+import { RdoTabelaView } from "@/components/relatorios/RdoTabelaView";
 
 interface RdoItem {
   id: string;
@@ -35,6 +36,9 @@ interface RdoItem {
   turno: string | null;
   clima: string | null;
   observacoes_gerais?: string | null;
+  local?: string | null;
+  engenheiro_responsavel?: string | null;
+  status_validacao?: string | null;
 }
 
 interface EfetivoItem {
@@ -1012,6 +1016,7 @@ export default function RelatorioRdo() {
   const [clienteNome, setClienteNome] = useState("");
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [excluindo, setExcluindo] = useState<string | null>(null);
+  const [visao, setVisao] = useState<"lista" | "tabela">("lista");
 
   useEffect(() => {
     const carregar = async () => {
@@ -1033,7 +1038,7 @@ export default function RelatorioRdo() {
       // Buscar RDOs
       const { data: rdoData } = await (supabase as any)
         .from("rdo_diarios")
-        .select("id,data,tipo_rdo,responsavel,encarregado,preenchido_por,turno,clima,observacoes_gerais")
+        .select("id,data,tipo_rdo,responsavel,encarregado,preenchido_por,turno,clima,observacoes_gerais,local,engenheiro_responsavel,status_validacao")
         .or("status_validacao.is.null,status_validacao.neq.rascunho")
         .eq("obra_nome", ogs)
         .gte("data", ini)
@@ -1283,9 +1288,24 @@ export default function RelatorioRdo() {
         <NavigationTrail trail={trail} onSelect={goTo} />
       </div>
 
-      <main className="max-w-3xl mx-auto p-4 space-y-3">
-        {/* Barra de ações */}
+      <main className={`${visao === "tabela" ? "max-w-7xl" : "max-w-3xl"} mx-auto p-4 space-y-3`}>
         {!loading && rdoList.length > 0 && (
+          <div className="inline-flex rounded-lg border bg-white p-0.5">
+            <Button variant={visao === "lista" ? "default" : "ghost"} size="sm" className="gap-1.5 text-xs h-7" onClick={() => setVisao("lista")}>
+              <LayoutList className="w-3.5 h-3.5" /> Lista
+            </Button>
+            <Button variant={visao === "tabela" ? "default" : "ghost"} size="sm" className="gap-1.5 text-xs h-7" onClick={() => setVisao("tabela")}>
+              <Table2 className="w-3.5 h-3.5" /> Tabela (apontadores)
+            </Button>
+          </div>
+        )}
+
+        {!loading && rdoList.length > 0 && visao === "tabela" && (
+          <RdoTabelaView ogs={ogs} ini={ini} fim={fim} rdoList={rdoList} efetivoByRdoId={efetivoByRdoId} />
+        )}
+
+        {/* Barra de ações */}
+        {!loading && rdoList.length > 0 && visao === "lista" && (
           <div className="flex gap-2 flex-wrap items-center">
             {/* Selecionar todos */}
             {rdoList.length > 1 && (
@@ -1362,7 +1382,7 @@ export default function RelatorioRdo() {
           <div className="rdo-card py-10 text-center text-muted-foreground text-sm">
             Nenhum RDO encontrado para este período
           </div>
-        ) : (
+        ) : visao === "tabela" ? null : (
           rdoList.map((item) => {
             const isOpen = !!expanded[item.id];
             const efetivo = efetivoByRdoId[item.id] || [];
