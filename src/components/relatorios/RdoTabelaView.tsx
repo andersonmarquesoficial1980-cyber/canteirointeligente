@@ -15,7 +15,7 @@ export interface RdoTabelaRdo {
   turno: string | null;
   local?: string | null;
   engenheiro_responsavel?: string | null;
-  status_validacao?: string | null;
+  clima?: string | null;
 }
 
 export interface RdoTabelaEfetivo {
@@ -40,25 +40,11 @@ const fmtData = (v: string | null) => {
   return y && m && d ? `${d}/${m}/${y}` : v;
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  validado: "Validado",
-  rejeitado: "Rejeitado",
-  aprovado: "Aprovado",
-  nao_aprovado: "Não aprovado",
-  enviado: "Aguardando validação",
-  aguardando_validacao: "Aguardando validação",
-  aguardando_encarregado: "Aguardando encarregado",
-  cancelado: "Cancelado",
-};
-
-const labelStatus = (s?: string | null) => {
-  if (!s) return "-";
-  return STATUS_LABEL[s] || s.replace(/_/g, " ").replace(/^./, c => c.toUpperCase());
-};
-
 const statusClass = (s?: string | null) => {
-  if (s === "validado" || s === "aprovado") return "bg-green-100 text-green-800";
-  if (s === "rejeitado" || s === "nao_aprovado" || s === "cancelado") return "bg-red-100 text-red-800";
+  const v = (s || "").toLowerCase();
+  if (v.startsWith("trabalh")) return "bg-green-100 text-green-800";
+  if (v.startsWith("cancel")) return "bg-red-100 text-red-800";
+  if (v.startsWith("folga")) return "bg-slate-100 text-slate-700";
   return "bg-amber-100 text-amber-800";
 };
 
@@ -89,8 +75,8 @@ export function RdoTabelaView({ ogs, ini, fim, rdoList, efetivoByRdoId }: Props)
           apontador: r.preenchido_por || "-",
           ogs,
           local: r.local || "-",
-          statusRaw: r.status_validacao || null,
-          status: labelStatus(r.status_validacao),
+          statusRaw: r.clima || null,
+          status: r.clima || "-",
           turno: r.turno || "-",
           inicio: horarioMaisComum(ef.map(e => e.entrada)),
           fim: horarioMaisComum(ef.map(e => e.saida)),
