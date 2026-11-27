@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCanExport } from "@/hooks/useCanExport";
@@ -62,7 +62,9 @@ function horarioMaisComum(valores: (string | null | undefined)[]): string {
 export function RdoTabelaView({ ogs, ini, fim, rdoList, efetivoByRdoId }: Props) {
   const { canExport, loading: loadingCanExport } = useCanExport();
 
-  const linhas = useMemo(() => {
+  const [filtroEnc, setFiltroEnc] = useState("");
+
+  const todas = useMemo(() => {
     return [...rdoList]
       .sort((a, b) => (a.data || "").localeCompare(b.data || "") || (a.turno || "").localeCompare(b.turno || ""))
       .map(r => {
@@ -84,10 +86,19 @@ export function RdoTabelaView({ ogs, ini, fim, rdoList, efetivoByRdoId }: Props)
       });
   }, [rdoList, efetivoByRdoId, ogs]);
 
+  const encarregados = useMemo(
+    () => Array.from(new Set(todas.map(l => l.encarregado).filter(e => e && e !== "-"))).sort((a, b) => a.localeCompare(b)),
+    [todas],
+  );
+  const linhas = useMemo(
+    () => (filtroEnc ? todas.filter(l => l.encarregado === filtroEnc) : todas),
+    [todas, filtroEnc],
+  );
+
   const matriz = () =>
     linhas.map(l => [l.data, l.engenheiro, l.encarregado, l.apontador, l.ogs, l.local, l.status, l.turno, l.inicio, l.fim]);
 
-  const nomeArquivo = `RDO_Apontadores_OGS${ogs}_${ini}_a_${fim}`;
+  const nomeArquivo = `RDO_Apontadores_OGS${ogs}_${ini}_a_${fim}${filtroEnc ? "_" + filtroEnc.split(" ")[0] : ""}`;
 
   const exportarExcel = () => {
     const ws = XLSX.utils.aoa_to_sheet([COLUNAS, ...matriz()]);
@@ -102,7 +113,7 @@ export function RdoTabelaView({ ogs, ini, fim, rdoList, efetivoByRdoId }: Props)
     doc.setFontSize(13);
     doc.text("Relatório de RDOs preenchidos pelos apontadores", 14, 14);
     doc.setFontSize(9);
-    doc.text(`OGS ${ogs} • ${fmtData(ini)} a ${fmtData(fim)} • ${linhas.length} RDO(s)`, 14, 20);
+    doc.text(`OGS ${ogs} • ${fmtData(ini)} a ${fmtData(fim)}${filtroEnc ? ` • Encarregado: ${filtroEnc}` : ""} • ${linhas.length} RDO(s)`, 14, 20);
     autoTable(doc, {
       head: [COLUNAS],
       body: matriz(),
@@ -118,9 +129,20 @@ export function RdoTabelaView({ ogs, ini, fim, rdoList, efetivoByRdoId }: Props)
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap rounded-xl border bg-blue-50/60 px-4 py-3">
         <div>
-          <p className="text-sm font-bold text-primary">{linhas.length} RDO(s) encontrados</p>
-          <p className="text-xs text-muted-foreground">OGS {ogs} • {fmtData(ini)} a {fmtData(fim)}</p>
+          <p className="text-sm font-bold text-primary">{linhas.length} RDO(s) encontrados{filtroEnc ? ` de ${todas.length}` : ""}</p>
+          <p className="text-xs text-muted-foreground">OGS {ogs} • {fmtData(ini)} a {fmtData(fim)}{filtroEnc ? ` • ${filtroEnc}` : ""}</p>
         </div>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          Encarregado
+          <select
+            value={filtroEnc}
+            onChange={e => setFiltroEnc(e.target.value)}
+            className="h-8 rounded-md border bg-white px-2 text-xs text-foreground"
+          >
+            <option value="">Todos</option>
+            {encarregados.map(e => <option key={e} value={e}>{e}</option>)}
+          </select>
+        </label>
         {canExport && !loadingCanExport && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={exportarExcel}>
